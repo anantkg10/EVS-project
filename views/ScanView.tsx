@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
+import { Chat, GenerateContentResponse } from "@google/genai";
 import { analyzePlantImage } from '../services/geminiService';
 import { ScanResult, Severity, HistoryItem, ChatMessage, View } from '../types';
 import HolographicButton from '../components/HolographicButton';
 import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Gauge from '../components/Gauge';
+import { ai } from '../services/geminiService';
 
 interface ScanViewProps {
   setView: (view: View, state?: any) => void;
@@ -30,10 +31,6 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   useEffect(() => {
     if (scanResult && !followUpChat) {
       try {
-        if (!process.env.API_KEY) {
-            throw new Error("API_KEY environment variable is not set");
-        }
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const initialContext = `CONTEXT: The user has just scanned a plant image. The analysis is as follows: ${JSON.stringify(scanResult)}. You are AgriBot, an expert plant pathologist. Your task is to answer the user's follow-up questions based ONLY on this context. Be helpful, concise, and stay on topic. Do not mention the context itself unless asked. Start the conversation by inviting the user to ask a question.`;
 
         const newChat = ai.chats.create({

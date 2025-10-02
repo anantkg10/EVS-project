@@ -1,9 +1,8 @@
-
-
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
+import { Chat, GenerateContentResponse } from "@google/genai";
 import { ChatMessage } from '../types';
 import Icon from './Icon';
+import { ai } from '../services/geminiService';
 
 interface ChatbotProps {
     isOpen: boolean;
@@ -20,11 +19,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen }) => {
     useEffect(() => {
         if (isOpen && !chat) {
             try {
-                // Fix: Use process.env.API_KEY to get the API key as per the coding guidelines.
-                if (!process.env.API_KEY) {
-                    throw new Error("API_KEY environment variable is not set");
-                }
-                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
                 const newChat = ai.chats.create({
                     model: 'gemini-2.5-flash',
                     config: {

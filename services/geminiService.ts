@@ -1,13 +1,14 @@
-
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ScanResult, Severity } from '../types';
 
-// Fix: Use process.env.API_KEY to get the API key as per the coding guidelines.
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable is not set");
+// Fix: Switched to process.env.API_KEY to align with guidelines and resolve TypeScript error.
+const apiKey = process.env.API_KEY;
+
+if (!apiKey) {
+    // Fix: Updated the error message to reflect the correct environment variable name.
+    throw new Error("API_KEY environment variable is not set.");
 }
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const ai = new GoogleGenAI({ apiKey });
 
 
 const fileToGenerativePart = (file: File) => {
