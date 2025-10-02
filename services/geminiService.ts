@@ -1,15 +1,17 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ScanResult, Severity } from '../types';
 
-// Fix: Switched to process.env.API_KEY to align with guidelines and resolve TypeScript error.
 const apiKey = process.env.API_KEY;
 
-if (!apiKey) {
-    // Fix: Updated the error message to reflect the correct environment variable name.
-    throw new Error("API_KEY environment variable is not set.");
-}
-export const ai = new GoogleGenAI({ apiKey });
+export let ai: GoogleGenAI | null = null;
+export let apiKeyMissingError = false;
 
+if (!apiKey) {
+    console.error("CRITICAL: API_KEY environment variable is not set. AI features will be disabled.");
+    apiKeyMissingError = true;
+} else {
+    ai = new GoogleGenAI({ apiKey });
+}
 
 const fileToGenerativePart = (file: File) => {
   return new Promise<{ inlineData: { data: string; mimeType: string } }>((resolve, reject) => {
@@ -32,6 +34,10 @@ const fileToGenerativePart = (file: File) => {
 };
 
 export const analyzePlantImage = async (imageFile: File): Promise<ScanResult> => {
+    if (!ai) {
+        throw new Error("Gemini AI client is not initialized. Please ensure the API_KEY is configured correctly.");
+    }
+
     const imagePart = await fileToGenerativePart(imageFile);
     
     const prompt = `Analyze this image of a plant leaf/stem/fruit. You are a world-class plant pathologist AI. 
