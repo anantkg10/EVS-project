@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ScanResult, Severity, Article } from '../types';
 
-// Fix: Switched to process.env.API_KEY as per the coding guidelines to resolve the ImportMeta error.
+// Fix: Use process.env.API_KEY as per coding guidelines.
 const apiKey = process.env.API_KEY;
 
 export let ai: GoogleGenAI | null = null;
