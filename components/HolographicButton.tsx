@@ -1,5 +1,5 @@
 
-import React, from 'react';
+import React from 'react';
 
 interface HolographicButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
