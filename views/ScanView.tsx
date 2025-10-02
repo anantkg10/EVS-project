@@ -29,7 +29,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
 
 
   useEffect(() => {
-    if (scanResult && !followUpChat) {
+    if (scanResult && !followUpChat && ai) {
       try {
         const initialContext = `CONTEXT: The user has just scanned a plant image. The analysis is as follows: ${JSON.stringify(scanResult)}. You are AgriBot, an expert plant pathologist. Your task is to answer the user's follow-up questions based ONLY on this context. Be helpful, concise, and stay on topic. Do not mention the context itself unless asked. Start the conversation by inviting the user to ask a question.`;
 
@@ -43,16 +43,32 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
 
         // Send an empty message to get the initial greeting
         const getInitialMessage = async () => {
-             setIsReplying(true);
-             const result: AsyncGenerator<GenerateContentResponse> = await newChat.sendMessageStream({ message: "" });
-             let modelResponse = '';
-             setFollowUpMessages([{ role: 'model', text: '...' }]);
-             for await (const chunk of result) {
-                modelResponse += chunk.text;
-                setFollowUpMessages([{ role: 'model', text: modelResponse + '...' }]);
-             }
-             setFollowUpMessages([{ role: 'model', text: modelResponse }]);
-             setIsReplying(false);
+            setIsReplying(true);
+            try {
+                const result: AsyncGenerator<GenerateContentResponse> = await newChat.sendMessageStream({ message: "" });
+                let modelResponse = '';
+                setFollowUpMessages(prev => [...prev, { role: 'model', text: '...' }]);
+
+                for await (const chunk of result) {
+                    modelResponse += chunk.text;
+                    setFollowUpMessages(prev => {
+                        const newMessages = [...prev];
+                        newMessages[newMessages.length - 1].text = modelResponse + '...';
+                        return newMessages;
+                    });
+                }
+                
+                setFollowUpMessages(prev => {
+                    const newMessages = [...prev];
+                    newMessages[newMessages.length - 1].text = modelResponse;
+                    return newMessages;
+                });
+            } catch (error) {
+                console.error('Initial greeting fetch error:', error);
+                setFollowUpMessages(prev => [...prev, { role: 'model', text: 'I had an issue starting our chat. How can I help?' }]);
+            } finally {
+                setIsReplying(false);
+            }
         };
         getInitialMessage();
 
