@@ -1,3 +1,5 @@
+// Remove Vite client types as they are no longer needed.
+
 // Fix: Import React to resolve namespace issue for React.ReactNode.
 import React from 'react';
 

@@ -53,7 +53,7 @@ const App: React.FC = () => {
               <Icon name="warning" className="w-8 h-8 text-red-400 flex-shrink-0 mt-1" />
               <div className="flex-1">
                 <h3 className="font-bold text-red-300">Configuration Required</h3>
-                {/* Fix: Updated environment variable name to API_KEY as per coding guidelines. */}
+                {/* Revert environment variable name to API_KEY as per guidelines. */}
                 <p className="text-sm text-gray-300">
                   AI features are disabled. The <code className="bg-gray-800 text-yellow-300 px-1 py-0.5 rounded text-xs">API_KEY</code> environment variable is not set. Please refer to your deployment instructions to enable AI functionality.
                 </p>
