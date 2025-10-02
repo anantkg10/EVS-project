@@ -148,8 +148,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
     if (!imageFile || !imagePreview) return;
 
     if (apiKeyMissingError) {
-        // Revert environment variable name in error message to API_KEY.
-        setError("Cannot analyze plant. The application's API_KEY is not configured.");
+        setError("Cannot analyze plant. Please configure the application's API key in the Settings page.");
         return;
     }
 

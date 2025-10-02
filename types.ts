@@ -50,6 +50,7 @@ export interface Article {
     category: string;
     icon: 'leaf' | 'rotate' | 'warning' | 'shield' | 'water' | 'fertilizer';
     image: string;
+    // Fix: Add missing summary property to the Article interface.
     summary: string;
     content: React.ReactNode;
 }

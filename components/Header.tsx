@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View } from '../types';
 import Icon from './Icon';
@@ -19,7 +18,7 @@ const navItems = [
 const Header: React.FC<HeaderProps> = ({ currentView, setView }) => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-center">
-      <nav className="w-full max-w-4xl bg-black/30 backdrop-blur-md rounded-full holographic-border flex items-center justify-between p-2">
+      <nav className="w-full max-w-5xl bg-black/30 backdrop-blur-md rounded-full holographic-border flex items-center justify-between p-2">
         <div className="flex items-center space-x-2">
           <div className="p-2 bg-green-500/20 rounded-full">
             <Icon name="leaf" className="w-6 h-6 text-green-400" />
@@ -41,6 +40,17 @@ const Header: React.FC<HeaderProps> = ({ currentView, setView }) => {
               <span className="hidden md:inline">{item.label}</span>
             </button>
           ))}
+           <button
+              onClick={() => setView(View.SETTINGS)}
+              className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center space-x-2 ${
+                currentView === View.SETTINGS
+                  ? 'bg-green-500/30 text-white'
+                  : 'text-gray-300 hover:bg-green-500/10 hover:text-white'
+              }`}
+            >
+              <Icon name="settings" className="w-4 h-4" />
+              <span className="hidden md:inline">Settings</span>
+            </button>
         </div>
       </nav>
     </header>

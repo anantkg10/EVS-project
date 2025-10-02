@@ -1,19 +1,53 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ScanResult, Severity, Article } from '../types';
 
-// Revert to process.env.API_KEY as per the coding guidelines.
-const apiKey = process.env.API_KEY;
-
 export let ai: GoogleGenAI | null = null;
 export let apiKeyMissingError = false;
 
-if (!apiKey) {
-    // Revert error message to refer to API_KEY.
-    console.error("CRITICAL: API_KEY environment variable is not set. AI features will be disabled.");
-    apiKeyMissingError = true;
-} else {
-    ai = new GoogleGenAI({ apiKey });
-}
+const initializeAi = () => {
+    // Priority: 1. Environment Variable, 2. Session Storage
+    const apiKey = process.env.API_KEY || sessionStorage.getItem('userApiKey');
+
+    if (!apiKey) {
+        console.error("CRITICAL: API_KEY is not set in environment or session storage. AI features will be disabled.");
+        apiKeyMissingError = true;
+        ai = null;
+    } else {
+        try {
+            ai = new GoogleGenAI({ apiKey });
+            apiKeyMissingError = false;
+        } catch(e) {
+            console.error("Error initializing GoogleGenAI:", e);
+            apiKeyMissingError = true;
+            ai = null;
+        }
+    }
+};
+
+// Function for the Settings page to call
+export const setSessionApiKey = (key: string): boolean => {
+    if (key) {
+        sessionStorage.setItem('userApiKey', key);
+    } else {
+        sessionStorage.removeItem('userApiKey');
+    }
+    initializeAi();
+    return !apiKeyMissingError; // Return success status
+};
+
+export const getApiKeyStatus = () => {
+    if (process.env.API_KEY) {
+        return { source: 'Environment Variable', configured: true };
+    }
+    if (sessionStorage.getItem('userApiKey')) {
+        return { source: 'Session Override', configured: true };
+    }
+    return { source: 'Not Configured', configured: false };
+};
+
+
+// Initial call to set up the service on load
+initializeAi();
 
 const fileToGenerativePart = (file: File) => {
   return new Promise<{ inlineData: { data: string; mimeType: string } }>((resolve, reject) => {
@@ -37,8 +71,7 @@ const fileToGenerativePart = (file: File) => {
 
 export const analyzePlantImage = async (imageFile: File): Promise<ScanResult> => {
     if (!ai) {
-        // Revert error message to refer to API_KEY.
-        throw new Error("Gemini AI client is not initialized. Please ensure the API_KEY is configured correctly.");
+        throw new Error("Gemini AI client is not initialized. Please configure the API_KEY in the Settings page.");
     }
 
     const imagePart = await fileToGenerativePart(imageFile);
@@ -102,7 +135,7 @@ export const analyzePlantImage = async (imageFile: File): Promise<ScanResult> =>
         return parsedResult;
     } catch (error) {
         console.error("Error analyzing plant image with Gemini:", error);
-        throw new Error("Failed to analyze plant image. The AI model may be temporarily unavailable.");
+        throw new Error("Failed to analyze plant image. The AI model may be temporarily unavailable or the API key is invalid.");
     }
 };
 
