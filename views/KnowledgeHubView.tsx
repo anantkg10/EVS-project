@@ -1,10 +1,9 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Icon from '../components/Icon';
 import { Article } from '../types';
 import HolographicButton from '../components/HolographicButton';
 
-const articles: Article[] = [
+export const articles: Article[] = [
     { 
         id: 1, title: 'Understanding Powdery Mildew', category: 'Fungal Diseases', icon: 'leaf', image: 'https://picsum.photos/seed/mildew/400/200',
         summary: 'A common fungal disease that affects a wide variety of plants, appearing as white powdery spots on leaves and stems.',
@@ -89,9 +88,25 @@ const ArticleDetailView: React.FC<{ article: Article; onBack: () => void }> = ({
     </div>
 );
 
-const KnowledgeHubView: React.FC = () => {
+interface KnowledgeHubViewProps {
+  navigationState: any;
+  clearNavigationState: () => void;
+}
+
+const KnowledgeHubView: React.FC<KnowledgeHubViewProps> = ({ navigationState, clearNavigationState }) => {
     const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    useEffect(() => {
+        if (navigationState?.selectedArticleId) {
+            const article = articles.find(a => a.id === navigationState.selectedArticleId);
+            if (article) {
+                setSelectedArticle(article);
+            }
+            clearNavigationState();
+        }
+    }, [navigationState, clearNavigationState]);
+
 
     const filteredArticles = useMemo(() => 
         articles.filter(article => 

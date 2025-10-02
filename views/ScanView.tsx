@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Chat, GenerateContentResponse } from "@google/genai";
-import { analyzePlantImage } from '../services/geminiService';
-import { ScanResult, Severity, HistoryItem, ChatMessage, View } from '../types';
+import { analyzePlantImage, findRelatedArticles } from '../services/geminiService';
+import { ScanResult, Severity, HistoryItem, ChatMessage, View, Article } from '../types';
 import HolographicButton from '../components/HolographicButton';
 import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Gauge from '../components/Gauge';
 import { ai } from '../services/geminiService';
+import { articles as allArticles } from './KnowledgeHubView';
+
 
 interface ScanViewProps {
   setView: (view: View, state?: any) => void;
@@ -19,6 +21,9 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   const [error, setError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // State for related articles
+  const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
 
   // State for the follow-up chat
   const [followUpChat, setFollowUpChat] = useState<Chat | null>(null);
@@ -47,20 +52,25 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
             try {
                 const result: AsyncGenerator<GenerateContentResponse> = await newChat.sendMessageStream({ message: "" });
                 let modelResponse = '';
+                // Use a functional update to ensure we have the latest state
                 setFollowUpMessages(prev => [...prev, { role: 'model', text: '...' }]);
 
                 for await (const chunk of result) {
                     modelResponse += chunk.text;
                     setFollowUpMessages(prev => {
                         const newMessages = [...prev];
-                        newMessages[newMessages.length - 1].text = modelResponse + '...';
+                        if (newMessages.length > 0) {
+                            newMessages[newMessages.length - 1].text = modelResponse + '...';
+                        }
                         return newMessages;
                     });
                 }
                 
                 setFollowUpMessages(prev => {
-                    const newMessages = [...prev];
-                    newMessages[newMessages.length - 1].text = modelResponse;
+                     const newMessages = [...prev];
+                     if (newMessages.length > 0) {
+                        newMessages[newMessages.length - 1].text = modelResponse;
+                     }
                     return newMessages;
                 });
             } catch (error) {
@@ -139,6 +149,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
     setIsLoading(true);
     setError(null);
     setScanResult(null);
+    setRelatedArticles([]);
     try {
       const result = await analyzePlantImage(imageFile);
       setScanResult(result);
@@ -153,6 +164,12 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
       const existingHistory: HistoryItem[] = JSON.parse(localStorage.getItem('scanHistory') || '[]');
       const updatedHistory = [newHistoryItem, ...existingHistory].slice(0, 50); // Keep last 50 scans
       localStorage.setItem('scanHistory', JSON.stringify(updatedHistory));
+
+      // Find related articles
+      const relatedArticleIds = await findRelatedArticles(result.diseaseName, allArticles);
+      const foundArticles = allArticles.filter(a => relatedArticleIds.includes(a.id));
+      setRelatedArticles(foundArticles);
+
 
     } catch (err: any) {
       setError(err.message || 'An unknown error occurred.');
@@ -179,6 +196,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
     setFollowUpChat(null);
     setFollowUpMessages([]);
     setFollowUpInput('');
+    setRelatedArticles([]);
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
     }
@@ -292,6 +310,25 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
                         </div>
                     </div>
                 </div>
+
+                {relatedArticles.length > 0 && (
+                    <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border">
+                        <h3 className="text-2xl font-bold text-green-300 mb-4">Related Knowledge Hub Articles</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {relatedArticles.map((article) => (
+                                <div 
+                                    key={article.id} 
+                                    className="bg-black/30 p-4 rounded-lg holographic-border cursor-pointer hover:border-green-400 transition-colors"
+                                    onClick={() => setView(View.KNOWLEDGE_HUB, { selectedArticleId: article.id })}
+                                >
+                                    <h4 className="font-bold text-lg text-white">{article.title}</h4>
+                                    <p className="text-sm text-gray-400 line-clamp-2">{article.summary}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
 
                 <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border">
                     <h3 className="text-2xl font-bold text-green-300 mb-4">Treatment Recommendations</h3>

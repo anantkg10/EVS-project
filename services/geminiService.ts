@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { ScanResult, Severity } from '../types';
+import { ScanResult, Severity, Article } from '../types';
 
 const apiKey = process.env.API_KEY;
 
@@ -100,5 +100,50 @@ export const analyzePlantImage = async (imageFile: File): Promise<ScanResult> =>
     } catch (error) {
         console.error("Error analyzing plant image with Gemini:", error);
         throw new Error("Failed to analyze plant image. The AI model may be temporarily unavailable.");
+    }
+};
+
+export const findRelatedArticles = async (diseaseName: string, articles: Article[]): Promise<number[]> => {
+    if (!ai || diseaseName.toLowerCase() === 'healthy') {
+        return [];
+    }
+
+    const articleInfo = articles.map(a => ({ id: a.id, title: a.title, summary: a.summary }));
+
+    const prompt = `Given the plant disease diagnosis "${diseaseName}", which of the following articles are the most relevant? Please return the IDs of the top 2-3 most relevant articles.
+
+Available Articles:
+${JSON.stringify(articleInfo, null, 2)}
+
+Your response must be a JSON object containing a single key "articleIds" which is an array of numbers.`;
+
+    const responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+            articleIds: {
+                type: Type.ARRAY,
+                items: { type: Type.NUMBER }
+            }
+        },
+        required: ["articleIds"]
+    };
+
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: responseSchema,
+                temperature: 0.1,
+            },
+        });
+
+        const jsonText = response.text.trim();
+        const parsedResult = JSON.parse(jsonText) as { articleIds: number[] };
+        return parsedResult.articleIds || [];
+    } catch (error) {
+        console.error("Error finding related articles:", error);
+        return []; // Return empty array on error to prevent UI crash
     }
 };

@@ -31,7 +31,7 @@ const App: React.FC = () => {
       case View.HISTORY:
         return <HistoryView setView={navigate} />;
       case View.KNOWLEDGE_HUB:
-        return <KnowledgeHubView />;
+        return <KnowledgeHubView navigationState={navigationState} clearNavigationState={clearNavigationState} />;
       case View.COMMUNITY:
         return <CommunityView navigationState={navigationState} clearNavigationState={clearNavigationState} />;
       default:
