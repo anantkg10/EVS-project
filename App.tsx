@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View } from './types';
 import Header from './components/Header';
 import HomeView from './views/HomeView';
@@ -14,6 +14,8 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [navigationState, setNavigationState] = useState<any>(null);
+  const [showApiBanner, setShowApiBanner] = useState(apiKeyMissingError);
+
 
   const navigate = useCallback((view: View, state?: any) => {
     setCurrentView(view);
@@ -39,38 +41,27 @@ const App: React.FC = () => {
     }
   }, [currentView, navigationState, navigate]);
 
-  if (apiKeyMissingError) {
-    return (
-        <div className="min-h-screen bg-black flex flex-col items-center justify-center text-center p-6 text-gray-300">
-            <div className="bg-red-900/30 border border-red-500/50 rounded-2xl p-8 max-w-3xl w-full">
-                <Icon name="warning" className="w-20 h-20 text-red-400 mx-auto mb-6" />
-                <h1 className="text-4xl font-bold text-red-300 mb-4">Configuration Error</h1>
-                <p className="text-lg max-w-2xl mx-auto">
-                    The <code className="bg-gray-800 text-yellow-300 px-2 py-1 rounded">API_KEY</code> environment variable is missing.
-                </p>
-                <p className="mt-2 text-gray-400 max-w-2xl mx-auto">
-                    This application cannot connect to the AI service without a valid Google Gemini API key.
-                </p>
-                <div className="text-left bg-gray-900/50 p-6 rounded-lg mt-8">
-                    <h2 className="text-xl font-semibold text-green-300 mb-3">How to fix this:</h2>
-                    <ol className="list-decimal list-inside space-y-3 text-gray-300">
-                        <li>Go to your project's dashboard on Vercel.</li>
-                        <li>Click on the <span className="font-semibold text-white">Settings</span> tab, then <span className="font-semibold text-white">Environment Variables</span>.</li>
-                        <li>Create a new variable with the name <code className="bg-gray-800 text-yellow-300 px-2 py-1 rounded">API_KEY</code>.</li>
-                        <li>Paste your Google Gemini API key into the value field.</li>
-                        <li>Save the variable and redeploy the application.</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-cover bg-center bg-fixed text-gray-200" style={{ backgroundImage: "url('https://picsum.photos/seed/futurefarm/1920/1080')" }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-0"></div>
       <div className="relative z-10 font-sans">
         <Header currentView={currentView} setView={navigate} />
+        
+        {showApiBanner && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 w-full max-w-4xl z-40 p-4 animate-subtle-float">
+            <div className="bg-red-900/50 backdrop-blur-md border border-red-500/50 rounded-xl p-4 flex items-start space-x-4">
+              <Icon name="warning" className="w-8 h-8 text-red-400 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="font-bold text-red-300">Configuration Required</h3>
+                <p className="text-sm text-gray-300">
+                  AI features are disabled. The <code className="bg-gray-800 text-yellow-300 px-1 py-0.5 rounded text-xs">API_KEY</code> environment variable is not set. Please refer to your deployment instructions to enable AI functionality.
+                </p>
+              </div>
+              <button onClick={() => setShowApiBanner(false)} className="text-red-300 hover:text-white text-2xl font-bold p-1">&times;</button>
+            </div>
+          </div>
+        )}
+
         <main className="pt-24 pb-20 px-4 md:px-8">
             {renderView()}
         </main>

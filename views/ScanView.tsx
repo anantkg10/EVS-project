@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Chat, GenerateContentResponse } from "@google/genai";
-import { analyzePlantImage, findRelatedArticles } from '../services/geminiService';
+import { analyzePlantImage, findRelatedArticles, apiKeyMissingError } from '../services/geminiService';
 import { ScanResult, Severity, HistoryItem, ChatMessage, View, Article } from '../types';
 import HolographicButton from '../components/HolographicButton';
 import Icon from '../components/Icon';
@@ -146,6 +146,12 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
 
   const handleAnalyze = async () => {
     if (!imageFile || !imagePreview) return;
+
+    if (apiKeyMissingError) {
+        setError("Cannot analyze plant. The application's API_KEY is not configured.");
+        return;
+    }
+
     setIsLoading(true);
     setError(null);
     setScanResult(null);
@@ -166,10 +172,11 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
       localStorage.setItem('scanHistory', JSON.stringify(updatedHistory));
 
       // Find related articles
-      const relatedArticleIds = await findRelatedArticles(result.diseaseName, allArticles);
-      const foundArticles = allArticles.filter(a => relatedArticleIds.includes(a.id));
-      setRelatedArticles(foundArticles);
-
+      if (!apiKeyMissingError) {
+        const relatedArticleIds = await findRelatedArticles(result.diseaseName, allArticles);
+        const foundArticles = allArticles.filter(a => relatedArticleIds.includes(a.id));
+        setRelatedArticles(foundArticles);
+      }
 
     } catch (err: any) {
       setError(err.message || 'An unknown error occurred.');
@@ -386,7 +393,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
         )}
       </div>
 
-      {error && <p className="text-red-400 mt-4">{error}</p>}
+      {error && <p className="text-red-400 mt-4 bg-red-500/10 p-3 rounded-lg">{error}</p>}
       
       {imageFile && (
         <HolographicButton

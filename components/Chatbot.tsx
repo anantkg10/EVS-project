@@ -15,9 +15,14 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [chat, setChat] = useState<Chat | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [isConfigured] = useState(!!ai);
 
     useEffect(() => {
         if (isOpen && !chat) {
+            if (!isConfigured) {
+                setMessages([{ role: 'model', text: 'Hello! I am AgriBot, but I am currently offline. The application needs a valid API key to enable my features. 🤖' }]);
+                return;
+            }
             try {
                 const newChat = ai.chats.create({
                     model: 'gemini-2.5-flash',
@@ -32,7 +37,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen }) => {
                 setMessages([{ role: 'model', text: 'Sorry, I am unable to connect right now.' }]);
             }
         }
-    }, [isOpen, chat]);
+    }, [isOpen, chat, isConfigured]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -114,11 +119,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen }) => {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                        placeholder="Ask me anything..."
+                        placeholder={isConfigured ? "Ask me anything..." : "Chatbot is offline"}
                         className="flex-1 bg-transparent px-4 py-2 text-white placeholder-gray-400 focus:outline-none"
-                        disabled={isLoading}
+                        disabled={isLoading || !isConfigured}
                     />
-                    <button onClick={handleSend} disabled={isLoading || !input.trim()} className="bg-green-500/80 text-white p-2 rounded-full hover:bg-green-500 disabled:opacity-50">
+                    <button onClick={handleSend} disabled={isLoading || !input.trim() || !isConfigured} className="bg-green-500/80 text-white p-2 rounded-full hover:bg-green-500 disabled:opacity-50">
                         <Icon name="arrowRight" className="w-5 h-5" />
                     </button>
                 </div>
