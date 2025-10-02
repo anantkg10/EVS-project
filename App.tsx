@@ -11,29 +11,37 @@ import Chatbot from './components/Chatbot';
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [navigationState, setNavigationState] = useState<any>(null);
+
+  const navigate = useCallback((view: View, state?: any) => {
+    setCurrentView(view);
+    setNavigationState(state);
+  }, []);
 
   const renderView = useCallback(() => {
+    const clearNavigationState = () => setNavigationState(null);
+
     switch (currentView) {
       case View.DASHBOARD:
-        return <HomeView setView={setCurrentView} />;
+        return <HomeView setView={navigate} />;
       case View.SCAN:
-        return <ScanView />;
+        return <ScanView setView={navigate} />;
       case View.HISTORY:
-        return <HistoryView />;
+        return <HistoryView setView={navigate} />;
       case View.KNOWLEDGE_HUB:
         return <KnowledgeHubView />;
       case View.COMMUNITY:
-        return <CommunityView />;
+        return <CommunityView navigationState={navigationState} clearNavigationState={clearNavigationState} />;
       default:
-        return <HomeView setView={setCurrentView} />;
+        return <HomeView setView={navigate} />;
     }
-  }, [currentView]);
+  }, [currentView, navigationState, navigate]);
 
   return (
     <div className="min-h-screen bg-cover bg-center bg-fixed text-gray-200" style={{ backgroundImage: "url('https://picsum.photos/seed/futurefarm/1920/1080')" }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-0"></div>
       <div className="relative z-10 font-sans">
-        <Header currentView={currentView} setView={setCurrentView} />
+        <Header currentView={currentView} setView={navigate} />
         <main className="pt-24 pb-20 px-4 md:px-8">
             {renderView()}
         </main>

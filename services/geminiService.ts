@@ -1,7 +1,9 @@
 
+
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ScanResult, Severity } from '../types';
 
+// Fix: Use process.env.API_KEY to get the API key as per the coding guidelines.
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set");
 }

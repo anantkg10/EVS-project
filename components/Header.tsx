@@ -5,7 +5,7 @@ import Icon from './Icon';
 
 interface HeaderProps {
   currentView: View;
-  setView: (view: View) => void;
+  setView: (view: View, state?: any) => void;
 }
 
 const navItems = [

@@ -1,13 +1,17 @@
-
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { analyzePlantImage } from '../services/geminiService';
-import { ScanResult, Severity, HistoryItem } from '../types';
+import { ScanResult, Severity, HistoryItem, ChatMessage, View } from '../types';
 import HolographicButton from '../components/HolographicButton';
 import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Gauge from '../components/Gauge';
 
-const ScanView: React.FC = () => {
+interface ScanViewProps {
+  setView: (view: View, state?: any) => void;
+}
+
+const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -15,11 +19,99 @@ const ScanView: React.FC = () => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // State for the follow-up chat
+  const [followUpChat, setFollowUpChat] = useState<Chat | null>(null);
+  const [followUpMessages, setFollowUpMessages] = useState<ChatMessage[]>([]);
+  const [isReplying, setIsReplying] = useState(false);
+  const [followUpInput, setFollowUpInput] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+
+  useEffect(() => {
+    if (scanResult && !followUpChat) {
+      try {
+        if (!process.env.API_KEY) {
+            throw new Error("API_KEY environment variable is not set");
+        }
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const initialContext = `CONTEXT: The user has just scanned a plant image. The analysis is as follows: ${JSON.stringify(scanResult)}. You are AgriBot, an expert plant pathologist. Your task is to answer the user's follow-up questions based ONLY on this context. Be helpful, concise, and stay on topic. Do not mention the context itself unless asked. Start the conversation by inviting the user to ask a question.`;
+
+        const newChat = ai.chats.create({
+            model: 'gemini-2.5-flash',
+            config: {
+              systemInstruction: initialContext,
+            },
+        });
+        setFollowUpChat(newChat);
+
+        // Send an empty message to get the initial greeting
+        const getInitialMessage = async () => {
+             setIsReplying(true);
+             const result: AsyncGenerator<GenerateContentResponse> = await newChat.sendMessageStream({ message: "" });
+             let modelResponse = '';
+             setFollowUpMessages([{ role: 'model', text: '...' }]);
+             for await (const chunk of result) {
+                modelResponse += chunk.text;
+                setFollowUpMessages([{ role: 'model', text: modelResponse + '...' }]);
+             }
+             setFollowUpMessages([{ role: 'model', text: modelResponse }]);
+             setIsReplying(false);
+        };
+        getInitialMessage();
+
+      } catch (error) {
+        console.error("Failed to initialize follow-up chat:", error);
+        setFollowUpMessages([{ role: 'model', text: 'Sorry, I am unable to start a follow-up chat right now.' }]);
+      }
+    }
+  }, [scanResult, followUpChat]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [followUpMessages]);
+
+  const handleSendFollowUp = async () => {
+    if (!followUpInput.trim() || isReplying || !followUpChat) return;
+
+    const userMessage: ChatMessage = { role: 'user', text: followUpInput };
+    setFollowUpMessages(prev => [...prev, userMessage]);
+    const currentInput = followUpInput;
+    setFollowUpInput('');
+    setIsReplying(true);
+
+    try {
+        const result: AsyncGenerator<GenerateContentResponse> = await followUpChat.sendMessageStream({ message: currentInput });
+        let modelResponse = '';
+        setFollowUpMessages(prev => [...prev, { role: 'model', text: '...' }]);
+
+        for await (const chunk of result) {
+            modelResponse += chunk.text;
+            setFollowUpMessages(prev => {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1].text = modelResponse + '...';
+                return newMessages;
+            });
+        }
+        
+        setFollowUpMessages(prev => {
+            const newMessages = [...prev];
+            newMessages[newMessages.length - 1].text = modelResponse;
+            return newMessages;
+        });
+
+    } catch (error) {
+        console.error('Follow-up chat error:', error);
+        setFollowUpMessages(prev => [...prev, { role: 'model', text: 'Oops! I ran into an issue. Please try again.' }]);
+    } finally {
+        setIsReplying(false);
+    }
+  };
+
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setScanResult(null);
-      setError(null);
+      resetState();
       setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -56,12 +148,24 @@ const ScanView: React.FC = () => {
     }
   };
 
+  const handleShareToCommunity = () => {
+    if (!scanResult || !imagePreview) return;
+    const postData = {
+      ...scanResult,
+      imagePreview,
+    };
+    setView(View.COMMUNITY, { action: 'CREATE_POST_FROM_SCAN', data: postData });
+  };
+
   const resetState = () => {
     setImageFile(null);
     setImagePreview(null);
     setScanResult(null);
     setError(null);
     setIsLoading(false);
+    setFollowUpChat(null);
+    setFollowUpMessages([]);
+    setFollowUpInput('');
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
     }
@@ -112,6 +216,13 @@ const ScanView: React.FC = () => {
                 <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border">
                     <img src={imagePreview!} alt="Analyzed plant" className="rounded-lg w-full h-auto object-cover mb-4" />
                     <HolographicButton onClick={resetState} className="w-full">Scan Another Plant</HolographicButton>
+                    <HolographicButton 
+                        onClick={handleShareToCommunity} 
+                        className="w-full mt-4 bg-blue-500/20 border-blue-400/50 hover:bg-blue-500/40 hover:shadow-[0_0_25px_rgba(96,165,250,0.6)]"
+                        icon={<Icon name="community" className="w-6 h-6"/>}
+                    >
+                        Share to Community
+                    </HolographicButton>
                 </div>
                 <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border text-center">
                     <h3 className="text-xl font-bold text-green-300 mb-4">Severity Assessment</h3>
@@ -131,6 +242,42 @@ const ScanView: React.FC = () => {
                         {getSeverityIcon(scanResult.severity)}
                     </div>
                     <p className="mt-4 text-gray-300">{scanResult.summary}</p>
+                </div>
+
+                {/* Follow-up Chat Section */}
+                <div className="bg-black/30 backdrop-blur-md rounded-xl holographic-border flex flex-col h-[400px]">
+                    <h3 className="text-2xl font-bold text-green-300 p-4 border-b border-green-400/30">Ask a Follow-up Question</h3>
+                    <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                        {followUpMessages.map((msg, index) => (
+                            <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-md px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-green-600/50 text-white rounded-br-none' : 'bg-gray-700/50 text-gray-200 rounded-bl-none'}`}>
+                                    {msg.text}
+                                </div>
+                            </div>
+                        ))}
+                        {isReplying && followUpMessages[followUpMessages.length -1]?.role === 'user' && (
+                             <div className="flex justify-start">
+                                <div className="max-w-xs px-4 py-2 rounded-2xl bg-gray-700/50 text-gray-200 rounded-bl-none animate-pulse">...</div>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+                     <div className="p-4 border-t border-green-400/30">
+                        <div className="flex items-center space-x-2 bg-black/30 rounded-full holographic-border p-1">
+                             <input
+                                type="text"
+                                value={followUpInput}
+                                onChange={(e) => setFollowUpInput(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleSendFollowUp()}
+                                placeholder="Ask about this diagnosis..."
+                                className="flex-1 bg-transparent px-4 py-2 text-white placeholder-gray-400 focus:outline-none"
+                                disabled={isReplying}
+                            />
+                            <button onClick={handleSendFollowUp} disabled={isReplying || !followUpInput.trim()} className="bg-green-500/80 text-white p-2 rounded-full hover:bg-green-500 disabled:opacity-50">
+                                <Icon name="arrowRight" className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border">

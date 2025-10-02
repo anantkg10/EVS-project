@@ -1,11 +1,23 @@
 
 import React, { useState, useEffect } from 'react';
 import Icon from '../components/Icon';
-import { HistoryItem, Severity } from '../types';
+import { HistoryItem, Severity, View } from '../types';
 import Gauge from '../components/Gauge';
 import HolographicButton from '../components/HolographicButton';
 
-const HistoryDetailModal: React.FC<{ scan: HistoryItem; onClose: () => void }> = ({ scan, onClose }) => {
+interface HistoryDetailModalProps {
+    scan: HistoryItem;
+    onClose: () => void;
+    setView: (view: View, state?: any) => void;
+}
+
+const HistoryDetailModal: React.FC<HistoryDetailModalProps> = ({ scan, onClose, setView }) => {
+    
+    const handleShareToCommunity = () => {
+        setView(View.COMMUNITY, { action: 'CREATE_POST_FROM_SCAN', data: scan });
+        onClose(); // Close modal after initiating navigation
+    };
+
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100] p-4" onClick={onClose}>
             <div className="bg-black/50 holographic-border rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-8 relative" onClick={e => e.stopPropagation()}>
@@ -39,12 +51,25 @@ const HistoryDetailModal: React.FC<{ scan: HistoryItem; onClose: () => void }> =
                         </div>
                     </div>
                 </div>
+                <div className="mt-8 text-center">
+                    <HolographicButton 
+                        onClick={handleShareToCommunity} 
+                        className="py-2 px-6 text-base bg-blue-500/20 border-blue-400/50 hover:bg-blue-500/40 hover:shadow-[0_0_25px_rgba(96,165,250,0.6)]"
+                        icon={<Icon name="community" className="w-6 h-6"/>}
+                    >
+                        Share to Community
+                    </HolographicButton>
+                </div>
             </div>
         </div>
     );
 };
 
-const HistoryView: React.FC = () => {
+interface HistoryViewProps {
+  setView: (view: View, state?: any) => void;
+}
+
+const HistoryView: React.FC<HistoryViewProps> = ({ setView }) => {
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [selectedScan, setSelectedScan] = useState<HistoryItem | null>(null);
 
@@ -104,7 +129,7 @@ const HistoryView: React.FC = () => {
                     </div>
                 </div>
             )}
-            {selectedScan && <HistoryDetailModal scan={selectedScan} onClose={() => setSelectedScan(null)} />}
+            {selectedScan && <HistoryDetailModal scan={selectedScan} onClose={() => setSelectedScan(null)} setView={setView} />}
         </div>
     );
 };

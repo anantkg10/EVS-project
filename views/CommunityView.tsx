@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Icon from '../components/Icon';
 import HolographicButton from '../components/HolographicButton';
-import { Post, Reply } from '../types';
+import { Post, Reply, HistoryItem } from '../types';
 
 const initialPosts: Post[] = [
     {
@@ -95,8 +95,12 @@ const PostThreadView: React.FC<{ post: Post; onBack: () => void; onReply: (postI
     );
 };
 
+interface CommunityViewProps {
+  navigationState: any;
+  clearNavigationState: () => void;
+}
 
-const CommunityView: React.FC = () => {
+const CommunityView: React.FC<CommunityViewProps> = ({ navigationState, clearNavigationState }) => {
     const [posts, setPosts] = useState<Post[]>([]);
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
     const [isCreatingPost, setIsCreatingPost] = useState(false);
@@ -107,6 +111,35 @@ const CommunityView: React.FC = () => {
         const storedPosts = JSON.parse(localStorage.getItem('forumPosts') || 'null');
         setPosts(storedPosts || initialPosts);
     }, []);
+    
+    useEffect(() => {
+        if (navigationState?.action === 'CREATE_POST_FROM_SCAN') {
+            const scanData: HistoryItem = navigationState.data;
+            
+            const title = `Seeking advice on: ${scanData.diseaseName}`;
+            const content = `Hello community,
+
+I just received an AI diagnosis and would appreciate a second opinion.
+
+**Diagnosis:** ${scanData.diseaseName}
+**Confidence:** ${scanData.confidence.toFixed(1)}%
+**Severity:** ${scanData.severity}
+
+**AI's Summary:**
+> ${scanData.summary.split('\n').join('\n> ')}
+
+Any thoughts or similar experiences? Thanks in advance!
+
+*(Note: Image from scan is not attached to this post yet.)*`;
+
+            setNewPostTitle(title);
+            setNewPostContent(content);
+            setIsCreatingPost(true);
+            
+            clearNavigationState(); // Consume the state so it doesn't re-trigger
+        }
+    }, [navigationState, clearNavigationState]);
+
 
     const savePosts = (updatedPosts: Post[]) => {
         setPosts(updatedPosts);
@@ -178,7 +211,7 @@ const CommunityView: React.FC = () => {
                         <h3 className="text-2xl font-bold text-green-300 mb-6">Create New Post</h3>
                         <div className="space-y-4">
                              <input type="text" value={newPostTitle} onChange={e => setNewPostTitle(e.target.value)} placeholder="Post Title" className="w-full bg-black/40 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400" required/>
-                             <textarea value={newPostContent} onChange={e => setNewPostContent(e.target.value)} placeholder="What's on your mind?" className="w-full bg-black/40 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400" rows={6} required />
+                             <textarea value={newPostContent} onChange={e => setNewPostContent(e.target.value)} placeholder="What's on your mind?" className="w-full bg-black/40 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400" rows={8} required />
                         </div>
                         <div className="flex justify-end space-x-4 mt-6">
                             <HolographicButton type="button" onClick={() => setIsCreatingPost(false)} className="py-2 px-4 text-base bg-gray-500/20 border-gray-400/50 hover:bg-gray-500/40">Cancel</HolographicButton>

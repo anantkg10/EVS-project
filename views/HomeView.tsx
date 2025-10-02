@@ -5,7 +5,7 @@ import HolographicButton from '../components/HolographicButton';
 import Icon from '../components/Icon';
 
 interface HomeViewProps {
-  setView: (view: View) => void;
+  setView: (view: View, state?: any) => void;
 }
 
 const HomeView: React.FC<HomeViewProps> = ({ setView }) => {
