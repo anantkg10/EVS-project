@@ -1,12 +1,14 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ScanResult, Severity, Article } from '../types';
 
+// Fix: Switched to process.env.API_KEY as per the coding guidelines to resolve the ImportMeta error.
 const apiKey = process.env.API_KEY;
 
 export let ai: GoogleGenAI | null = null;
 export let apiKeyMissingError = false;
 
 if (!apiKey) {
+    // Fix: Updated error message to refer to API_KEY.
     console.error("CRITICAL: API_KEY environment variable is not set. AI features will be disabled.");
     apiKeyMissingError = true;
 } else {
