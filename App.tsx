@@ -80,7 +80,7 @@ const App: React.FC = () => {
           className="fixed bottom-4 left-1/2 -translate-x-1/2 text-sm text-green-300/80 font-sans z-50 tracking-wider"
           style={{ textShadow: '0 0 8px rgba(72, 187, 120, 0.7)' }}
         >
-          {t('footerText')} <span className="text-green-400 animate-pulse">♥</span>™
+          {t('footerText', { team: 'Anant  I  Bipul  I  Abhishek  I  Harsh  I  Dhruthi  I  Siddharth' })}
         </footer>
       </div>
     </div>
