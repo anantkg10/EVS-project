@@ -20,6 +20,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessageKey, setLoadingMessageKey] = useState<string>('scanLoading');
   const [isTranslating, setIsTranslating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [englishScanResult, setEnglishScanResult] = useState<ScanResult | null>(null);
@@ -44,6 +45,35 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   const [isReplying, setIsReplying] = useState(false);
   const [followUpInput, setFollowUpInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Fix: Replaced NodeJS.Timeout with 'number' for browser compatibility.
+    // The setInterval function in a browser environment returns a number, not a NodeJS.Timeout object.
+    let interval: number | undefined;
+    if (isLoading) {
+      const messages = [
+        'scanLoading1',
+        'scanLoading2',
+        'scanLoading3',
+        'scanLoading4',
+        'scanLoading5',
+        'scanLoading6',
+      ];
+      let messageIndex = 0;
+      setLoadingMessageKey(messages[messageIndex]);
+
+      interval = setInterval(() => {
+        messageIndex = (messageIndex + 1) % messages.length;
+        setLoadingMessageKey(messages[messageIndex]);
+      }, 2500);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isLoading]);
 
   useEffect(() => {
     if (!englishScanResult) {
@@ -305,7 +335,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
-        <LoadingSpinner textKey="scanLoading" />
+        <LoadingSpinner textKey={loadingMessageKey} />
         {imagePreview && <img src={imagePreview} alt={t('scanningAlt')} className="mt-8 rounded-lg max-w-sm w-full h-auto object-cover opacity-30" />}
       </div>
     );
