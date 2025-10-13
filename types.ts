@@ -9,6 +9,7 @@ export enum View {
   HISTORY = 'HISTORY',
   COMMUNITY = 'COMMUNITY',
   KNOWLEDGE_HUB = 'KNOWLEDGE_HUB',
+  SETTINGS = 'SETTINGS',
 }
 
 export enum Severity {

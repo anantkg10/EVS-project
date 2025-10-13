@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View } from './types';
 import Header from './components/Header';
 import HomeView from './views/HomeView';
@@ -6,6 +6,7 @@ import ScanView from './views/ScanView';
 import HistoryView from './views/HistoryView';
 import KnowledgeHubView from './views/KnowledgeHubView';
 import CommunityView from './views/CommunityView';
+import SettingsView from './views/SettingsView';
 import Chatbot from './components/Chatbot';
 import { apiKeyMissingError } from './services/geminiService';
 import Icon from './components/Icon';
@@ -15,7 +16,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [navigationState, setNavigationState] = useState<any>(null);
-  const [showApiBanner] = useState(apiKeyMissingError);
+  const [showApiBanner, setShowApiBanner] = useState(apiKeyMissingError);
   const { t } = useLocalization();
 
 
@@ -23,6 +24,11 @@ const App: React.FC = () => {
     setCurrentView(view);
     setNavigationState(state);
   }, []);
+
+  const handleApiKeyUpdate = () => {
+    // Re-check the status from the service and update the banner state
+    setShowApiBanner(apiKeyMissingError);
+  };
 
   const renderView = useCallback(() => {
     const clearNavigationState = () => setNavigationState(null);
@@ -38,6 +44,8 @@ const App: React.FC = () => {
         return <KnowledgeHubView navigationState={navigationState} clearNavigationState={clearNavigationState} />;
       case View.COMMUNITY:
         return <CommunityView navigationState={navigationState} clearNavigationState={clearNavigationState} />;
+      case View.SETTINGS:
+        return <SettingsView onApiKeyUpdate={handleApiKeyUpdate} />;
       default:
         return <HomeView setView={navigate} />;
     }
@@ -56,9 +64,10 @@ const App: React.FC = () => {
               <div className="flex-1">
                 <h3 className="font-bold text-red-300">{t('apiBannerTitle')}</h3>
                 <p className="text-sm text-gray-300">
-                  {t('apiBannerText')} <code className="bg-gray-800 text-yellow-300 px-1 py-0.5 rounded text-xs">API_KEY</code> {t('apiBannerText2')}
+                  {t('apiBannerTextPart1')} <code className="bg-gray-800 text-yellow-300 px-1 py-0.5 rounded text-xs">API_KEY</code> {t('apiBannerTextPart2')} <a href="#" onClick={(e) => { e.preventDefault(); navigate(View.SETTINGS); }} className="font-bold text-green-300 underline hover:text-green-200">{t('settings')}</a> {t('apiBannerTextPart3')}
                 </p>
               </div>
+              <button onClick={() => setShowApiBanner(false)} className="text-red-300 hover:text-white text-2xl font-bold p-1">&times;</button>
             </div>
           </div>
         )}
