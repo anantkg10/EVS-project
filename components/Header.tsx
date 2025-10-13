@@ -1,21 +1,25 @@
 import React from 'react';
 import { View } from '../types';
 import Icon from './Icon';
+import { useLocalization } from '../contexts/LocalizationContext';
+import LanguageSelector from './LanguageSelector';
 
 interface HeaderProps {
   currentView: View;
   setView: (view: View, state?: any) => void;
 }
 
-const navItems = [
-  { view: View.DASHBOARD, label: 'Dashboard', icon: 'dashboard' },
-  { view: View.SCAN, label: 'Scan Plant', icon: 'scan' },
-  { view: View.HISTORY, label: 'History', icon: 'history' },
-  { view: View.KNOWLEDGE_HUB, label: 'Knowledge Hub', icon: 'book' },
-  { view: View.COMMUNITY, label: 'Community', icon: 'community' },
-];
-
 const Header: React.FC<HeaderProps> = ({ currentView, setView }) => {
+  const { t } = useLocalization();
+
+  const navItems = [
+    { view: View.DASHBOARD, label: t('dashboard'), icon: 'dashboard' },
+    { view: View.SCAN, label: t('scanPlant'), icon: 'scan' },
+    { view: View.HISTORY, label: t('history'), icon: 'history' },
+    { view: View.KNOWLEDGE_HUB, label: t('knowledgeHub'), icon: 'book' },
+    { view: View.COMMUNITY, label: t('community'), icon: 'community' },
+  ];
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-center">
       <nav className="w-full max-w-5xl bg-black/30 backdrop-blur-md rounded-full holographic-border flex items-center justify-between p-2">
@@ -49,8 +53,9 @@ const Header: React.FC<HeaderProps> = ({ currentView, setView }) => {
               }`}
             >
               <Icon name="settings" className="w-4 h-4" />
-              <span className="hidden md:inline">Settings</span>
+              <span className="hidden md:inline">{t('settings')}</span>
             </button>
+            <LanguageSelector />
         </div>
       </nav>
     </header>

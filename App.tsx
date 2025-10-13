@@ -10,12 +10,14 @@ import SettingsView from './views/SettingsView';
 import Chatbot from './components/Chatbot';
 import { apiKeyMissingError } from './services/geminiService';
 import Icon from './components/Icon';
+import { useLocalization } from './contexts/LocalizationContext';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [navigationState, setNavigationState] = useState<any>(null);
   const [showApiBanner, setShowApiBanner] = useState(apiKeyMissingError);
+  const { t } = useLocalization();
 
 
   const navigate = useCallback((view: View, state?: any) => {
@@ -60,9 +62,9 @@ const App: React.FC = () => {
             <div className="bg-red-900/50 backdrop-blur-md border border-red-500/50 rounded-xl p-4 flex items-start space-x-4">
               <Icon name="warning" className="w-8 h-8 text-red-400 flex-shrink-0 mt-1" />
               <div className="flex-1">
-                <h3 className="font-bold text-red-300">Configuration Required</h3>
+                <h3 className="font-bold text-red-300">{t('apiBannerTitle')}</h3>
                 <p className="text-sm text-gray-300">
-                  AI features are disabled. The application's API key is not configured. For deployed applications, set the <code className="bg-gray-800 text-yellow-300 px-1 py-0.5 rounded text-xs">API_KEY</code> environment variable. For local testing, you can set it manually in the <a href="#" onClick={(e) => { e.preventDefault(); navigate(View.SETTINGS); }} className="font-bold text-green-300 underline hover:text-green-200">Settings</a> page.
+                  {t('apiBannerTextPart1')} <code className="bg-gray-800 text-yellow-300 px-1 py-0.5 rounded text-xs">API_KEY</code> {t('apiBannerTextPart2')} <a href="#" onClick={(e) => { e.preventDefault(); navigate(View.SETTINGS); }} className="font-bold text-green-300 underline hover:text-green-200">{t('settings')}</a> {t('apiBannerTextPart3')}
                 </p>
               </div>
               <button onClick={() => setShowApiBanner(false)} className="text-red-300 hover:text-white text-2xl font-bold p-1">&times;</button>
@@ -78,7 +80,7 @@ const App: React.FC = () => {
           className="fixed bottom-4 left-1/2 -translate-x-1/2 text-sm text-green-300/80 font-sans z-50 tracking-wider"
           style={{ textShadow: '0 0 8px rgba(72, 187, 120, 0.7)' }}
         >
-          Built by ANANT with <span className="text-green-400 animate-pulse">♥</span>™
+          {t('footerText')} <span className="text-green-400 animate-pulse">♥</span>™
         </footer>
       </div>
     </div>

@@ -1,13 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Chat, GenerateContentResponse } from "@google/genai";
-import { analyzePlantImage, findRelatedArticles, apiKeyMissingError } from '../services/geminiService';
+import { analyzePlantImage, findRelatedArticles, apiKeyMissingError, translateScanResult } from '../services/geminiService';
 import { ScanResult, Severity, HistoryItem, ChatMessage, View, Article } from '../types';
 import HolographicButton from '../components/HolographicButton';
 import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Gauge from '../components/Gauge';
 import { ai } from '../services/geminiService';
-import { articles as allArticles } from './KnowledgeHubView';
+import { getArticles } from './KnowledgeHubView';
+import { useLocalization } from '../contexts/LocalizationContext';
+import { translations } from '../services/localization';
 
 
 interface ScanViewProps {
@@ -18,25 +20,77 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [englishScanResult, setEnglishScanResult] = useState<ScanResult | null>(null);
+  const [displayedResult, setDisplayedResult] = useState<ScanResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t, language, languageName } = useLocalization();
 
-  // State for related articles
-  const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
+  // Gets articles in the currently selected UI language. It will re-evaluate on language change.
+  const allArticles = useMemo(() => getArticles(t), [t]);
+  
+  // Store language-independent article IDs
+  const [relatedArticleIds, setRelatedArticleIds] = useState<number[]>([]);
 
-  // State for the follow-up chat
+  // Calculate displayed related articles based on IDs and current language's articles
+  const relatedArticles = useMemo(() => {
+    return allArticles.filter(a => relatedArticleIds.includes(a.id));
+  }, [relatedArticleIds, allArticles]);
+
+
   const [followUpChat, setFollowUpChat] = useState<Chat | null>(null);
   const [followUpMessages, setFollowUpMessages] = useState<ChatMessage[]>([]);
   const [isReplying, setIsReplying] = useState(false);
   const [followUpInput, setFollowUpInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (!englishScanResult) {
+      setDisplayedResult(null);
+      return;
+    }
+    
+    if (language === 'en') {
+      setDisplayedResult(englishScanResult);
+      return;
+    }
+
+    let isCancelled = false;
+    const translate = async () => {
+      setIsTranslating(true);
+      try {
+        const translatedResult = await translateScanResult(englishScanResult, languageName);
+        if (!isCancelled) {
+          setDisplayedResult(translatedResult);
+        }
+      } catch (e) {
+        console.error("Failed to translate scan result:", e);
+        // Fallback to English result on translation failure
+        if (!isCancelled) {
+          setDisplayedResult(englishScanResult);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsTranslating(false);
+        }
+      }
+    };
+
+    translate();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [englishScanResult, language, languageName]);
 
   useEffect(() => {
-    if (scanResult && !followUpChat && ai) {
+    if (displayedResult && ai) {
       try {
-        const initialContext = `CONTEXT: The user has just scanned a plant image. The analysis is as follows: ${JSON.stringify(scanResult)}. You are AgriBot, an expert plant pathologist. Your task is to answer the user's follow-up questions based ONLY on this context. Be helpful, concise, and stay on topic. Do not mention the context itself unless asked. Start the conversation by inviting the user to ask a question.`;
+        const initialContext = t('scanFollowupSystemInstruction', {
+            language: languageName,
+            scanResult: JSON.stringify(displayedResult)
+        });
 
         const newChat = ai.chats.create({
             model: 'gemini-2.5-flash',
@@ -45,14 +99,13 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
             },
         });
         setFollowUpChat(newChat);
+        setFollowUpMessages([]); 
 
-        // Send an empty message to get the initial greeting
         const getInitialMessage = async () => {
             setIsReplying(true);
             try {
                 const result: AsyncGenerator<GenerateContentResponse> = await newChat.sendMessageStream({ message: "" });
                 let modelResponse = '';
-                // Use a functional update to ensure we have the latest state
                 setFollowUpMessages(prev => [...prev, { role: 'model', text: '...' }]);
 
                 for await (const chunk of result) {
@@ -75,7 +128,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
                 });
             } catch (error) {
                 console.error('Initial greeting fetch error:', error);
-                setFollowUpMessages(prev => [...prev, { role: 'model', text: 'I had an issue starting our chat. How can I help?' }]);
+                setFollowUpMessages(prev => [...prev, { role: 'model', text: t('scanFollowupInitialError') }]);
             } finally {
                 setIsReplying(false);
             }
@@ -84,10 +137,13 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
 
       } catch (error) {
         console.error("Failed to initialize follow-up chat:", error);
-        setFollowUpMessages([{ role: 'model', text: 'Sorry, I am unable to start a follow-up chat right now.' }]);
+        setFollowUpMessages([{ role: 'model', text: t('scanFollowupInitError') }]);
       }
+    } else {
+        setFollowUpChat(null);
+        setFollowUpMessages([]);
     }
-  }, [scanResult, followUpChat]);
+  }, [displayedResult, t, languageName]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -124,7 +180,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
 
     } catch (error) {
         console.error('Follow-up chat error:', error);
-        setFollowUpMessages(prev => [...prev, { role: 'model', text: 'Oops! I ran into an issue. Please try again.' }]);
+        setFollowUpMessages(prev => [...prev, { role: 'model', text: t('scanFollowupGenericError') }]);
     } finally {
         setIsReplying(false);
     }
@@ -148,19 +204,18 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
     if (!imageFile || !imagePreview) return;
 
     if (apiKeyMissingError) {
-        setError("Cannot analyze plant. Please configure the application's API key in the Settings page.");
+        setError(t('scanErrorApiKeyMissing'));
         return;
     }
 
     setIsLoading(true);
     setError(null);
-    setScanResult(null);
-    setRelatedArticles([]);
+    setEnglishScanResult(null);
+    setRelatedArticleIds([]);
     try {
       const result = await analyzePlantImage(imageFile);
-      setScanResult(result);
+      setEnglishScanResult(result);
 
-      // Save to history
       const newHistoryItem: HistoryItem = {
           ...result,
           id: new Date().toISOString(),
@@ -168,27 +223,28 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
           imagePreview: imagePreview,
       };
       const existingHistory: HistoryItem[] = JSON.parse(localStorage.getItem('scanHistory') || '[]');
-      const updatedHistory = [newHistoryItem, ...existingHistory].slice(0, 50); // Keep last 50 scans
+      const updatedHistory = [newHistoryItem, ...existingHistory].slice(0, 50); 
       localStorage.setItem('scanHistory', JSON.stringify(updatedHistory));
 
-      // Find related articles
       if (!apiKeyMissingError) {
-        const relatedArticleIds = await findRelatedArticles(result.diseaseName, allArticles);
-        const foundArticles = allArticles.filter(a => relatedArticleIds.includes(a.id));
-        setRelatedArticles(foundArticles);
+        // Get IDs using English articles for consistent matching with the English disease name
+        const englishT = (key: string): string => translations['en'][key] || key;
+        const allEnglishArticles = getArticles(englishT);
+        const ids = await findRelatedArticles(result.diseaseName, allEnglishArticles);
+        setRelatedArticleIds(ids);
       }
 
     } catch (err: any) {
-      setError(err.message || 'An unknown error occurred.');
+      setError(err.message || t('scanErrorUnknown'));
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleShareToCommunity = () => {
-    if (!scanResult || !imagePreview) return;
+    if (!displayedResult || !imagePreview) return;
     const postData = {
-      ...scanResult,
+      ...displayedResult,
       imagePreview,
     };
     setView(View.COMMUNITY, { action: 'CREATE_POST_FROM_SCAN', data: postData });
@@ -197,13 +253,14 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   const resetState = () => {
     setImageFile(null);
     setImagePreview(null);
-    setScanResult(null);
+    setEnglishScanResult(null);
+    setDisplayedResult(null);
     setError(null);
     setIsLoading(false);
     setFollowUpChat(null);
     setFollowUpMessages([]);
     setFollowUpInput('');
-    setRelatedArticles([]);
+    setRelatedArticleIds([]);
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
     }
@@ -235,56 +292,65 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
     return <Icon name="leaf" className="w-8 h-8 text-green-300" />;
   }
 
+  const TranslationOverlay = () => (
+    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
+        <div className="flex flex-col items-center space-y-2">
+            <div className="w-8 h-8 border-t-2 border-green-400 rounded-full animate-spin"></div>
+            <p className="text-green-300">{t('translating')}</p>
+        </div>
+    </div>
+  );
+
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
-        <LoadingSpinner text="ANALYZING IMAGE..." />
-        {imagePreview && <img src={imagePreview} alt="Scanning plant" className="mt-8 rounded-lg max-w-sm w-full h-auto object-cover opacity-30" />}
+        <LoadingSpinner textKey="scanLoading" />
+        {imagePreview && <img src={imagePreview} alt={t('scanningAlt')} className="mt-8 rounded-lg max-w-sm w-full h-auto object-cover opacity-30" />}
       </div>
     );
   }
 
-  if (scanResult) {
+  if (displayedResult) {
     return (
       <div className="container mx-auto p-4">
-        <h2 className="text-4xl font-bold text-center mb-8 text-green-300">Analysis Complete</h2>
+        <h2 className="text-4xl font-bold text-center mb-8 text-green-300">{t('scanResultTitle')}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 space-y-8">
                 <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border">
-                    <img src={imagePreview!} alt="Analyzed plant" className="rounded-lg w-full h-auto object-cover mb-4" />
-                    <HolographicButton onClick={resetState} className="w-full">Scan Another Plant</HolographicButton>
+                    <img src={imagePreview!} alt={t('analyzedAlt')} className="rounded-lg w-full h-auto object-cover mb-4" />
+                    <HolographicButton onClick={resetState} className="w-full">{t('scanAnotherButton')}</HolographicButton>
                     <HolographicButton 
                         onClick={handleShareToCommunity} 
                         className="w-full mt-4 bg-blue-500/20 border-blue-400/50 hover:bg-blue-500/40 hover:shadow-[0_0_25px_rgba(96,165,250,0.6)]"
                         icon={<Icon name="community" className="w-6 h-6"/>}
                     >
-                        Share to Community
+                        {t('shareToCommunityButton')}
                     </HolographicButton>
                 </div>
                 <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border text-center">
-                    <h3 className="text-xl font-bold text-green-300 mb-4">Severity Assessment</h3>
+                    <h3 className="text-xl font-bold text-green-300 mb-4">{t('severityAssessment')}</h3>
                     <div className="flex justify-center">
-                        <Gauge severity={scanResult.severity} />
+                        <Gauge severity={displayedResult.severity} />
                     </div>
                 </div>
             </div>
 
             <div className="lg:col-span-2 space-y-8">
-                <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border">
+                <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border relative">
+                    {isTranslating && <TranslationOverlay />}
                     <div className="flex justify-between items-start">
                         <div>
-                            <h3 className="text-3xl font-bold text-green-300">{scanResult.diseaseName}</h3>
-                            <p className="text-gray-400">Confidence: {scanResult.confidence.toFixed(1)}%</p>
+                            <h3 className="text-3xl font-bold text-green-300">{displayedResult.diseaseName}</h3>
+                            <p className="text-gray-400">{t('confidence')}: {displayedResult.confidence.toFixed(1)}%</p>
                         </div>
-                        {getSeverityIcon(scanResult.severity)}
+                        {getSeverityIcon(displayedResult.severity)}
                     </div>
-                    <p className="mt-4 text-gray-300">{scanResult.summary}</p>
+                    <p className="mt-4 text-gray-300">{displayedResult.summary}</p>
                 </div>
 
-                {/* Follow-up Chat Section */}
                 <div className="bg-black/30 backdrop-blur-md rounded-xl holographic-border flex flex-col h-[400px]">
-                    <h3 className="text-2xl font-bold text-green-300 p-4 border-b border-green-400/30">Ask a Follow-up Question</h3>
+                    <h3 className="text-2xl font-bold text-green-300 p-4 border-b border-green-400/30">{t('askFollowUp')}</h3>
                     <div className="flex-1 p-4 overflow-y-auto space-y-4">
                         {followUpMessages.map((msg, index) => (
                             <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -307,7 +373,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
                                 value={followUpInput}
                                 onChange={(e) => setFollowUpInput(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && handleSendFollowUp()}
-                                placeholder="Ask about this diagnosis..."
+                                placeholder={t('followUpPlaceholder')}
                                 className="flex-1 bg-transparent px-4 py-2 text-white placeholder-gray-400 focus:outline-none"
                                 disabled={isReplying}
                             />
@@ -320,7 +386,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
 
                 {relatedArticles.length > 0 && (
                     <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border">
-                        <h3 className="text-2xl font-bold text-green-300 mb-4">Related Knowledge Hub Articles</h3>
+                        <h3 className="text-2xl font-bold text-green-300 mb-4">{t('relatedArticles')}</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {relatedArticles.map((article) => (
                                 <div 
@@ -337,10 +403,11 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
                 )}
 
 
-                <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border">
-                    <h3 className="text-2xl font-bold text-green-300 mb-4">Treatment Recommendations</h3>
+                <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border relative">
+                    {isTranslating && <TranslationOverlay />}
+                    <h3 className="text-2xl font-bold text-green-300 mb-4">{t('treatmentRecommendations')}</h3>
                     <div className="space-y-4">
-                        {scanResult.treatments.map((item, index) => (
+                        {displayedResult.treatments.map((item, index) => (
                             <div key={index} className="flex items-start space-x-4">
                                 <div className="p-3 bg-green-500/10 rounded-full">{getTreatmentIcon(item.name)}</div>
                                 <div>
@@ -352,10 +419,11 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
                     </div>
                 </div>
                 
-                <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border">
-                    <h3 className="text-2xl font-bold text-green-300 mb-4">Prevention Tips</h3>
+                <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border relative">
+                    {isTranslating && <TranslationOverlay />}
+                    <h3 className="text-2xl font-bold text-green-300 mb-4">{t('preventionTips')}</h3>
                      <div className="space-y-4">
-                        {scanResult.preventionTips.map((item, index) => (
+                        {displayedResult.preventionTips.map((item, index) => (
                            <div key={index} className="flex items-start space-x-4">
                                 <div className="p-3 bg-green-500/10 rounded-full">{getPreventionIcon(item.name)}</div>
                                 <div>
@@ -374,8 +442,8 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
 
   return (
     <div className="container mx-auto flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center">
-      <h2 className="text-4xl font-bold mb-4 text-green-300">Upload Plant Image</h2>
-      <p className="text-gray-400 mb-8 max-w-lg">Choose a clear photo of the affected plant part (leaf, stem, or fruit) for the most accurate diagnosis.</p>
+      <h2 className="text-4xl font-bold mb-4 text-green-300">{t('scanTitle')}</h2>
+      <p className="text-gray-400 mb-8 max-w-lg">{t('scanSubtitle')}</p>
 
       <div
         className="w-full max-w-2xl h-80 border-2 border-dashed border-green-400/50 rounded-2xl flex flex-col items-center justify-center p-8 bg-black/20 backdrop-blur-sm cursor-pointer hover:border-green-400 hover:bg-black/40 transition-all duration-300"
@@ -383,12 +451,12 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
       >
         <input type="file" accept="image/*" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
         {imagePreview ? (
-          <img src={imagePreview} alt="Plant preview" className="max-h-full rounded-lg" />
+          <img src={imagePreview} alt={t('plantPreviewAlt')} className="max-h-full rounded-lg" />
         ) : (
           <div className="text-center">
             <Icon name="upload" className="w-16 h-16 text-green-400 mx-auto mb-4" />
-            <p className="text-xl font-semibold">Drag & Drop or Click to Upload</p>
-            <p className="text-gray-500">PNG, JPG, or WEBP supported</p>
+            <p className="text-xl font-semibold">{t('uploadPrompt')}</p>
+            <p className="text-gray-500">{t('supportedFormats')}</p>
           </div>
         )}
       </div>
@@ -401,7 +469,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
             disabled={isLoading}
             className="mt-8 animate-glowing"
         >
-            Analyze Plant
+            {t('analyzeButton')}
         </HolographicButton>
       )}
     </div>

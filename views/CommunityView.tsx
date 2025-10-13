@@ -1,24 +1,24 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Icon from '../components/Icon';
 import HolographicButton from '../components/HolographicButton';
 import { Post, Reply, HistoryItem } from '../types';
+import { useLocalization } from '../contexts/LocalizationContext';
 
-const initialPosts: Post[] = [
+const getInitialPosts = (t: (key: string) => string): Post[] => [
     {
         id: '1', author: 'Farmer John', avatar: 'https://i.pravatar.cc/150?u=farmerjohn', time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        title: 'Unexpected spots on my tomato leaves, any ideas?',
-        content: 'I\'ve been seeing these strange yellow spots with dark centers on my heirloom tomatoes. Never had this issue before. Uploading a scan now, but wanted to see if anyone has seen this.',
+        title: t('initialPost1Title'),
+        content: t('initialPost1Content'),
         replies: [{
             id: 'r1', author: 'AgriExpert_Anna', avatar: 'https://i.pravatar.cc/150?u=agrianna', time: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-            content: "It sounds like it could be early blight. Does it start on the lower, older leaves? Check the humidity levels in your greenhouse."
+            content: t('initialPost1Reply1Content')
         }],
         views: 42,
     },
     {
         id: '2', author: 'AgriExpert_Anna', avatar: 'https://i.pravatar.cc/150?u=agrianna', time: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-        title: 'PSA: High humidity warning for fungal infections this week!',
-        content: 'With the recent rainfall and high humidity levels in the region, be extra vigilant for signs of powdery mildew and late blight. Ensure good air circulation around your plants.',
+        title: t('initialPost2Title'),
+        content: t('initialPost2Content'),
         replies: [], views: 157,
     },
 ];
@@ -30,6 +30,7 @@ const randomUser = () => {
 
 const PostThreadView: React.FC<{ post: Post; onBack: () => void; onReply: (postId: string, content: string) => void; }> = ({ post, onBack, onReply }) => {
     const [replyContent, setReplyContent] = useState('');
+    const { t } = useLocalization();
 
     const handleReplySubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -40,7 +41,7 @@ const PostThreadView: React.FC<{ post: Post; onBack: () => void; onReply: (postI
 
     return (
         <div className="max-w-4xl mx-auto">
-            <HolographicButton onClick={onBack} className="mb-8 py-2 px-4 text-sm">&larr; Back to Forum</HolographicButton>
+            <HolographicButton onClick={onBack} className="mb-8 py-2 px-4 text-sm">&larr; {t('backToForum')}</HolographicButton>
             
             <div className="bg-black/30 backdrop-blur-md p-6 rounded-xl holographic-border mb-8">
                 <div className="flex items-start space-x-4">
@@ -48,7 +49,7 @@ const PostThreadView: React.FC<{ post: Post; onBack: () => void; onReply: (postI
                     <div className="flex-1">
                         <h2 className="text-2xl font-bold text-green-300">{post.title}</h2>
                         <div className="flex items-center space-x-2 text-sm text-gray-400 mt-1">
-                            <span>Posted by <span className="font-semibold text-gray-300">{post.author}</span></span>
+                            <span>{t('postedBy')} <span className="font-semibold text-gray-300">{post.author}</span></span>
                             <span>&bull;</span>
                             <span>{new Date(post.time).toLocaleString()}</span>
                         </div>
@@ -57,7 +58,7 @@ const PostThreadView: React.FC<{ post: Post; onBack: () => void; onReply: (postI
                 </div>
             </div>
 
-            <h3 className="text-xl font-semibold text-white mb-4">Replies ({post.replies.length})</h3>
+            <h3 className="text-xl font-semibold text-white mb-4">{t('replies')} ({post.replies.length})</h3>
             <div className="space-y-6 mb-8">
                 {post.replies.map(reply => (
                     <div key={reply.id} className="bg-black/20 p-4 rounded-xl holographic-border ml-8">
@@ -74,21 +75,21 @@ const PostThreadView: React.FC<{ post: Post; onBack: () => void; onReply: (postI
                         </div>
                     </div>
                 ))}
-                 {post.replies.length === 0 && <p className="text-gray-400 ml-8">No replies yet. Be the first to respond!</p>}
+                 {post.replies.length === 0 && <p className="text-gray-400 ml-8">{t('noReplies')}</p>}
             </div>
 
             <form onSubmit={handleReplySubmit} className="bg-black/30 p-4 rounded-xl holographic-border">
-                <h4 className="font-semibold text-white mb-2">Post a Reply</h4>
+                <h4 className="font-semibold text-white mb-2">{t('postReply')}</h4>
                 <textarea
                     value={replyContent}
                     onChange={(e) => setReplyContent(e.target.value)}
-                    placeholder="Share your thoughts..."
+                    placeholder={t('shareThoughtsPlaceholder')}
                     className="w-full bg-black/40 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400"
                     rows={4}
                     required
                 />
                 <div className="text-right mt-4">
-                    <HolographicButton type="submit" className="py-2 px-4 text-base">Submit Reply</HolographicButton>
+                    <HolographicButton type="submit" className="py-2 px-4 text-base">{t('submitReply')}</HolographicButton>
                 </div>
             </form>
         </div>
@@ -106,31 +107,35 @@ const CommunityView: React.FC<CommunityViewProps> = ({ navigationState, clearNav
     const [isCreatingPost, setIsCreatingPost] = useState(false);
     const [newPostTitle, setNewPostTitle] = useState('');
     const [newPostContent, setNewPostContent] = useState('');
+    const { t } = useLocalization();
+    const initialPosts = useMemo(() => getInitialPosts(t), [t]);
 
     useEffect(() => {
-        const storedPosts = JSON.parse(localStorage.getItem('forumPosts') || 'null');
-        setPosts(storedPosts || initialPosts);
-    }, []);
+        const storedPostsRaw = localStorage.getItem('forumPosts');
+        if (storedPostsRaw) {
+            try {
+                const storedPosts = JSON.parse(storedPostsRaw);
+                setPosts(storedPosts);
+            } catch (e) {
+                console.error("Failed to parse forum posts from localStorage", e);
+                setPosts(initialPosts); // Fallback to initial if parsing fails
+            }
+        } else {
+            setPosts(initialPosts);
+        }
+    }, [initialPosts]);
     
     useEffect(() => {
         if (navigationState?.action === 'CREATE_POST_FROM_SCAN') {
             const scanData: HistoryItem = navigationState.data;
             
-            const title = `Seeking advice on: ${scanData.diseaseName}`;
-            const content = `Hello community,
-
-I just received an AI diagnosis and would appreciate a second opinion.
-
-**Diagnosis:** ${scanData.diseaseName}
-**Confidence:** ${scanData.confidence.toFixed(1)}%
-**Severity:** ${scanData.severity}
-
-**AI's Summary:**
-> ${scanData.summary.split('\n').join('\n> ')}
-
-Any thoughts or similar experiences? Thanks in advance!
-
-*(Note: Image from scan is not attached to this post yet.)*`;
+            const title = t('postFromScanTitle', { diseaseName: scanData.diseaseName });
+            const content = t('postFromScanContent', {
+                diseaseName: scanData.diseaseName,
+                confidence: scanData.confidence.toFixed(1),
+                severity: scanData.severity,
+                summary: scanData.summary.split('\n').join('\n> ')
+            });
 
             setNewPostTitle(title);
             setNewPostContent(content);
@@ -138,7 +143,7 @@ Any thoughts or similar experiences? Thanks in advance!
             
             clearNavigationState(); // Consume the state so it doesn't re-trigger
         }
-    }, [navigationState, clearNavigationState]);
+    }, [navigationState, clearNavigationState, t]);
 
 
     const savePosts = (updatedPosts: Post[]) => {
@@ -192,30 +197,30 @@ Any thoughts or similar experiences? Thanks in advance!
     return (
         <div className="container mx-auto p-4">
             <div className="text-center mb-12">
-                <h2 className="text-4xl font-bold text-green-300 mb-4">Community Forum</h2>
+                <h2 className="text-4xl font-bold text-green-300 mb-4">{t('communityForum')}</h2>
                 <p className="text-gray-400 max-w-2xl mx-auto">
-                    Connect with other farmers, share your experiences, and get advice from agricultural experts.
+                    {t('communitySubtitle')}
                 </p>
             </div>
             
             <div className="max-w-4xl mx-auto flex justify-between items-center mb-8">
-                <h3 className="text-2xl font-semibold text-white">Recent Discussions</h3>
+                <h3 className="text-2xl font-semibold text-white">{t('recentDiscussions')}</h3>
                 <HolographicButton onClick={() => setIsCreatingPost(true)}>
-                    <span className="text-base">Start a New Topic</span>
+                    <span className="text-base">{t('startNewTopic')}</span>
                 </HolographicButton>
             </div>
 
             {isCreatingPost && (
                  <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100] p-4" onClick={() => setIsCreatingPost(false)}>
                     <form onSubmit={handleCreatePost} className="bg-black/50 holographic-border rounded-2xl w-full max-w-2xl p-8" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-2xl font-bold text-green-300 mb-6">Create New Post</h3>
+                        <h3 className="text-2xl font-bold text-green-300 mb-6">{t('createNewPost')}</h3>
                         <div className="space-y-4">
-                             <input type="text" value={newPostTitle} onChange={e => setNewPostTitle(e.target.value)} placeholder="Post Title" className="w-full bg-black/40 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400" required/>
-                             <textarea value={newPostContent} onChange={e => setNewPostContent(e.target.value)} placeholder="What's on your mind?" className="w-full bg-black/40 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400" rows={8} required />
+                             <input type="text" value={newPostTitle} onChange={e => setNewPostTitle(e.target.value)} placeholder={t('postTitlePlaceholder')} className="w-full bg-black/40 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400" required/>
+                             <textarea value={newPostContent} onChange={e => setNewPostContent(e.target.value)} placeholder={t('postContentPlaceholder')} className="w-full bg-black/40 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400" rows={8} required />
                         </div>
                         <div className="flex justify-end space-x-4 mt-6">
-                            <HolographicButton type="button" onClick={() => setIsCreatingPost(false)} className="py-2 px-4 text-base bg-gray-500/20 border-gray-400/50 hover:bg-gray-500/40">Cancel</HolographicButton>
-                            <HolographicButton type="submit" className="py-2 px-4 text-base">Post</HolographicButton>
+                            <HolographicButton type="button" onClick={() => setIsCreatingPost(false)} className="py-2 px-4 text-base bg-gray-500/20 border-gray-400/50 hover:bg-gray-500/40">{t('cancel')}</HolographicButton>
+                            <HolographicButton type="submit" className="py-2 px-4 text-base">{t('post')}</HolographicButton>
                         </div>
                     </form>
                  </div>
@@ -229,7 +234,7 @@ Any thoughts or similar experiences? Thanks in advance!
                             <div className="flex-1">
                                 <h4 className="text-xl font-bold text-green-300 hover:underline cursor-pointer" onClick={() => setSelectedPost(post)}>{post.title}</h4>
                                 <div className="flex items-center space-x-2 text-sm text-gray-400 mt-1">
-                                    <span>Posted by <span className="font-semibold text-gray-300">{post.author}</span></span>
+                                    <span>{t('postedBy')} <span className="font-semibold text-gray-300">{post.author}</span></span>
                                     <span>&bull;</span>
                                     <span>{new Date(post.time).toLocaleString()}</span>
                                 </div>
@@ -237,9 +242,9 @@ Any thoughts or similar experiences? Thanks in advance!
                             </div>
                         </div>
                         <div className="flex items-center justify-end space-x-6 mt-4 text-gray-400 text-sm">
-                            <span>{post.replies.length} Replies</span>
-                            <span>{post.views} Views</span>
-                            <button onClick={() => setSelectedPost(post)} className="font-semibold text-green-400 hover:text-white">View Thread</button>
+                            <span>{post.replies.length} {t('replies')}</span>
+                            <span>{post.views} {t('views')}</span>
+                            <button onClick={() => setSelectedPost(post)} className="font-semibold text-green-400 hover:text-white">{t('viewThread')}</button>
                         </div>
                     </div>
                 ))}
