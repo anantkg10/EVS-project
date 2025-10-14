@@ -1,19 +1,19 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ScanResult, Severity, Article } from '../types';
 
-// Fix: Per guidelines, API key must be sourced from environment variables.
 const initializeAi = (): GoogleGenAI | null => {
-    const apiKey = process.env.API_KEY;
-    // Fix: Correctly check for process.env.API_KEY. The previous check was against a hardcoded value, causing a type error.
+    // API key is hardcoded for local development as requested.
+    const apiKey = "AIzaSyCeNeEKegg8ZgIkBlzcjto2okJZkRQMTis";
+
     if (!apiKey) {
-        console.error("CRITICAL: API_KEY environment variable is not set. AI features will be disabled.");
+        console.error("CRITICAL: API_KEY is missing from the source code. AI features will be disabled.");
         return null;
     }
     try {
-        // Fix: Initialize the AI client with the key from environment variables using the correct object parameter.
+        // Initialize the AI client with the hardcoded key.
         return new GoogleGenAI({ apiKey });
     } catch(e) {
-        console.error("Error initializing GoogleGenAI, please check if the API key is valid:", e);
+        console.error("Error initializing GoogleGenAI, please check if the hardcoded API key is valid:", e);
         return null;
     }
 };
@@ -43,8 +43,8 @@ const fileToGenerativePart = (file: File) => {
 
 export const analyzePlantImage = async (imageFile: File): Promise<ScanResult> => {
     if (!ai) {
-        // Fix: Updated error message to reflect use of environment variables.
-        throw new Error("Gemini AI client is not initialized. Please check the API_KEY environment variable.");
+        // Updated error message for hardcoded key scenario.
+        throw new Error("Gemini AI client is not initialized. The hardcoded API key may be invalid or missing.");
     }
 
     const imagePart = await fileToGenerativePart(imageFile);
@@ -119,7 +119,7 @@ export const translateScanResult = async (
     targetLanguageName: string
 ): Promise<ScanResult> => {
     if (!ai) {
-        throw new Error("Gemini AI client is not initialized.");
+        throw new Error("Gemini AI client is not initialized. The hardcoded API key may be invalid or missing.");
     }
     
     const textToTranslate = {
