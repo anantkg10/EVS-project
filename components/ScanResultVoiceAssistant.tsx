@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LiveServerMessage, Modality, Blob, LiveSession } from '@google/genai';
-import { TranscriptMessage } from '../types';
+import { TranscriptMessage, ScanResult } from '../types';
 import Icon from './Icon';
 import { ai } from '../services/geminiService';
 import { useLocalization } from '../contexts/LocalizationContext';
@@ -61,12 +61,13 @@ function createBlob(data: Float32Array): Blob {
 
 type AssistantStatus = 'OFFLINE' | 'CONNECTING' | 'LISTENING' | 'SPEAKING' | 'ERROR';
 
-interface VoiceAssistantProps {
+interface ScanResultVoiceAssistantProps {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
+    scanResult: ScanResult | null;
 }
 
-const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, setIsOpen }) => {
+const ScanResultVoiceAssistant: React.FC<ScanResultVoiceAssistantProps> = ({ isOpen, setIsOpen, scanResult }) => {
     const { t, languageName } = useLocalization();
     const [status, setStatus] = useState<AssistantStatus>('OFFLINE');
     const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
@@ -112,7 +113,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, setIsOpen }) =>
             return;
         }
 
-        if (!ai) {
+        if (!ai || !scanResult) {
             setStatus('OFFLINE');
             setTranscripts([{ role: 'model', text: t('voiceAssistantOfflineMessage') }]);
             return;
@@ -123,13 +124,16 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, setIsOpen }) =>
             setStatus('CONNECTING');
             
             try {
-                // Fix: Cast window to `any` to allow access to vendor-prefixed `webkitAudioContext` for older browser compatibility.
                 inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-                // Fix: Cast window to `any` to allow access to vendor-prefixed `webkitAudioContext` for older browser compatibility.
                 outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
                 
                 streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
 
+                const systemInstruction = t('scanVoiceAssistantSystemInstruction', {
+                    language: languageName,
+                    scanResult: JSON.stringify(scanResult)
+                });
+                
                 sessionPromiseRef.current = ai.live.connect({
                     model: 'gemini-2.5-flash-native-audio-preview-09-2025',
                     callbacks: {
@@ -142,7 +146,6 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, setIsOpen }) =>
                             scriptProcessorRef.current = scriptProcessor;
                             const gainNode = inputAudioContextRef.current.createGain();
                             gainNode.gain.setValueAtTime(0, inputAudioContextRef.current.currentTime);
-
 
                             scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
                                 const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
@@ -214,7 +217,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, setIsOpen }) =>
                             }
                         },
                         onerror: (e: ErrorEvent) => {
-                            console.error('Voice assistant error:', e);
+                            console.error('Scan voice assistant error:', e);
                             setStatus('ERROR');
                             setTranscripts(prev => [...prev, {role: 'model', text: t('voiceAssistantConnectionError')}]);
                         },
@@ -229,11 +232,11 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, setIsOpen }) =>
                         },
                         inputAudioTranscription: {},
                         outputAudioTranscription: {},
-                        systemInstruction: t('voiceAssistantSystemInstruction', { language: languageName }),
+                        systemInstruction: systemInstruction,
                     },
                 });
             } catch(e) {
-                console.error("Failed to start voice session:", e);
+                console.error("Failed to start scan voice session:", e);
                 setStatus('ERROR');
                 setTranscripts([{role: 'model', text: t('voiceAssistantGenericError')}]);
             }
@@ -241,7 +244,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, setIsOpen }) =>
 
         startSession();
         return () => cleanup();
-    }, [isOpen, t, languageName, cleanup]);
+    }, [isOpen, scanResult, t, languageName, cleanup]);
 
     const getStatusText = () => {
         switch (status) {
@@ -285,9 +288,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ isOpen, setIsOpen }) =>
                     </div>
                 ))}
             </div>
-
         </div>
     );
 };
 
-export default VoiceAssistant;
+export default ScanResultVoiceAssistant;

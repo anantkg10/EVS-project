@@ -10,6 +10,7 @@ import { ai } from '../services/geminiService';
 import { getArticles } from './KnowledgeHubView';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { translations } from '../services/localization';
+import ScanResultVoiceAssistant from '../components/ScanResultVoiceAssistant';
 
 
 interface ScanViewProps {
@@ -45,6 +46,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   const [isReplying, setIsReplying] = useState(false);
   const [followUpInput, setFollowUpInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isScanAssistantOpen, setIsScanAssistantOpen] = useState(false);
 
   useEffect(() => {
     // Fix: Replaced NodeJS.Timeout with 'number' for browser compatibility.
@@ -373,7 +375,17 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
                 </div>
 
                 <div className="bg-black/30 backdrop-blur-md rounded-xl holographic-border flex flex-col h-[400px]">
-                    <h3 className="text-2xl font-bold text-green-300 p-4 border-b border-green-400/30">{t('askFollowUp')}</h3>
+                     <div className="p-4 border-b border-green-400/30 flex justify-between items-center">
+                        <h3 className="text-2xl font-bold text-green-300">{t('askFollowUp')}</h3>
+                        <button
+                            onClick={() => setIsScanAssistantOpen(true)}
+                            className="bg-green-500/30 text-white p-2 rounded-full hover:bg-green-500/50 transition-colors"
+                            aria-label={t('discussWithAgriBot')}
+                            title={t('discussWithAgriBot')}
+                        >
+                            <Icon name="microphone" className="w-5 h-5" />
+                        </button>
+                    </div>
                     <div className="flex-1 p-4 overflow-y-auto space-y-4">
                         {followUpMessages.map((msg, index) => (
                             <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -459,6 +471,11 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
                 </div>
             </div>
         </div>
+         <ScanResultVoiceAssistant
+          isOpen={isScanAssistantOpen}
+          setIsOpen={setIsScanAssistantOpen}
+          scanResult={displayedResult}
+        />
       </div>
     );
   }
