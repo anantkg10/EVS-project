@@ -1,53 +1,25 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { ScanResult, Severity, Article } from '../types';
 
-export let ai: GoogleGenAI | null = null;
-export let apiKeyMissingError = false;
-
-const initializeAi = () => {
-    // Priority: 1. Environment Variable, 2. Session Storage
-    const apiKey = process.env.API_KEY || sessionStorage.getItem('userApiKey');
-
+// Fix: Per guidelines, API key must be sourced from environment variables.
+const initializeAi = (): GoogleGenAI | null => {
+    const apiKey = process.env.API_KEY;
+    // Fix: Correctly check for process.env.API_KEY. The previous check was against a hardcoded value, causing a type error.
     if (!apiKey) {
-        console.error("CRITICAL: API_KEY is not set in environment or session storage. AI features will be disabled.");
-        apiKeyMissingError = true;
-        ai = null;
-    } else {
-        try {
-            ai = new GoogleGenAI({ apiKey });
-            apiKeyMissingError = false;
-        } catch(e) {
-            console.error("Error initializing GoogleGenAI:", e);
-            apiKeyMissingError = true;
-            ai = null;
-        }
+        console.error("CRITICAL: API_KEY environment variable is not set. AI features will be disabled.");
+        return null;
+    }
+    try {
+        // Fix: Initialize the AI client with the key from environment variables using the correct object parameter.
+        return new GoogleGenAI({ apiKey });
+    } catch(e) {
+        console.error("Error initializing GoogleGenAI, please check if the API key is valid:", e);
+        return null;
     }
 };
 
-// Function for the Settings page to call
-export const setSessionApiKey = (key: string): boolean => {
-    if (key) {
-        sessionStorage.setItem('userApiKey', key);
-    } else {
-        sessionStorage.removeItem('userApiKey');
-    }
-    initializeAi();
-    return !apiKeyMissingError; // Return success status
-};
-
-export const getApiKeyStatus = () => {
-    if (process.env.API_KEY) {
-        return { source: 'Environment Variable', configured: true };
-    }
-    if (sessionStorage.getItem('userApiKey')) {
-        return { source: 'Session Override', configured: true };
-    }
-    return { source: 'Not Configured', configured: false };
-};
-
-
-// Initial call to set up the service on load
-initializeAi();
+// Export the initialized AI instance for use across the app.
+export const ai = initializeAi();
 
 const fileToGenerativePart = (file: File) => {
   return new Promise<{ inlineData: { data: string; mimeType: string } }>((resolve, reject) => {
@@ -71,7 +43,8 @@ const fileToGenerativePart = (file: File) => {
 
 export const analyzePlantImage = async (imageFile: File): Promise<ScanResult> => {
     if (!ai) {
-        throw new Error("Gemini AI client is not initialized. Please configure the API_KEY in the Settings page.");
+        // Fix: Updated error message to reflect use of environment variables.
+        throw new Error("Gemini AI client is not initialized. Please check the API_KEY environment variable.");
     }
 
     const imagePart = await fileToGenerativePart(imageFile);

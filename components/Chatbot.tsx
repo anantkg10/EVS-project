@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Chat, GenerateContentResponse } from "@google/genai";
-import { ChatMessage } from '../types';
+import { TranscriptMessage } from '../types';
 import Icon from './Icon';
 import { ai } from '../services/geminiService';
 import { useLocalization } from '../contexts/LocalizationContext';
@@ -11,51 +11,55 @@ interface ChatbotProps {
 }
 
 const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen }) => {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const { t, languageName } = useLocalization();
+    const [messages, setMessages] = useState<TranscriptMessage[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [chat, setChat] = useState<Chat | null>(null);
+    const chatRef = useRef<Chat | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const { t, languageName } = useLocalization();
-
+    
     useEffect(() => {
-        if (isOpen && !chat) {
+        if (isOpen) {
             if (!ai) {
                 setMessages([{ role: 'model', text: t('chatbotOfflineMessage') }]);
                 return;
             }
             try {
                 const systemInstruction = t('chatbotSystemInstruction', { language: languageName });
-
                 const newChat = ai.chats.create({
                     model: 'gemini-2.5-flash',
-                    config: {
-                      systemInstruction,
-                    },
+                    config: { systemInstruction },
                 });
-                setChat(newChat);
-                setMessages([{ role: 'model', text: t('chatbotGreeting') }]);
+                chatRef.current = newChat;
+                setMessages([]);
             } catch (error) {
-                console.error("Failed to initialize chatbot:", error);
+                console.error("Failed to initialize chat:", error);
                 setMessages([{ role: 'model', text: t('chatbotConnectionError') }]);
             }
+        } else {
+            setMessages([]);
+            setInput('');
+            setIsLoading(false);
+            chatRef.current = null;
         }
-    }, [isOpen, chat, t, languageName]);
+    }, [isOpen, t, languageName]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleSend = async () => {
-        if (!input.trim() || isLoading || !chat || !ai) return;
+    const handleSend = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || isLoading || !chatRef.current) return;
 
-        const userMessage: ChatMessage = { role: 'user', text: input };
+        const userMessage: TranscriptMessage = { role: 'user', text: input };
         setMessages(prev => [...prev, userMessage]);
+        const currentInput = input;
         setInput('');
         setIsLoading(true);
 
         try {
-            const result: AsyncGenerator<GenerateContentResponse> = await chat.sendMessageStream({ message: input });
+            const result: AsyncGenerator<GenerateContentResponse> = await chatRef.current.sendMessageStream({ message: currentInput });
             let modelResponse = '';
             setMessages(prev => [...prev, { role: 'model', text: '...' }]);
 
@@ -75,61 +79,57 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen }) => {
             });
 
         } catch (error) {
-            console.error('Gemini chat error:', error);
+            console.error('Chatbot error:', error);
             setMessages(prev => [...prev, { role: 'model', text: t('chatbotGenericError') }]);
         } finally {
             setIsLoading(false);
         }
     };
-
-    if (!isOpen) {
-        return (
-            <button
-                onClick={() => setIsOpen(true)}
-                className="fixed bottom-8 right-8 bg-green-500/80 backdrop-blur-md text-white p-4 rounded-full shadow-lg hover:bg-green-500 transition-transform hover:scale-110 animate-glowing"
-                aria-label={t('openChatbot')}
-            >
-                <Icon name="chatbot" className="w-8 h-8" />
-            </button>
-        );
-    }
+    
+    if (!isOpen) return null;
 
     return (
-        <div className="fixed bottom-8 right-8 w-96 h-[600px] bg-black/50 backdrop-blur-lg rounded-2xl holographic-border flex flex-col shadow-2xl z-50">
-            <header className="flex items-center justify-between p-4 border-b border-green-400/30">
-                <h3 className="text-lg font-bold text-green-300">{t('chatbotTitle')}</h3>
-                <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">&times;</button>
-            </header>
-            <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                {messages.map((msg, index) => (
-                    <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-green-600/50 text-white rounded-br-none' : 'bg-gray-700/50 text-gray-200 rounded-bl-none'}`}>
-                            {msg.text}
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100] p-4">
+            <div className="bg-black/50 holographic-border rounded-2xl w-full max-w-lg h-[80vh] flex flex-col">
+                <header className="flex items-center justify-between p-4 border-b border-green-400/30">
+                    <div className="flex items-center space-x-3">
+                        <Icon name="chatbot" className="w-6 h-6 text-green-300" />
+                        <h3 className="text-xl font-bold text-green-300">{t('chatbotTitle')}</h3>
+                    </div>
+                    <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white text-3xl font-bold">&times;</button>
+                </header>
+
+                <main className="flex-1 p-4 overflow-y-auto space-y-4">
+                    {messages.map((msg, index) => (
+                        <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-md px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-green-600/50 text-white rounded-br-none' : 'bg-gray-700/50 text-gray-200 rounded-bl-none'}`}>
+                                {msg.text}
+                            </div>
                         </div>
-                    </div>
-                ))}
-                {isLoading && (
-                    <div className="flex justify-start">
-                        <div className="max-w-xs px-4 py-2 rounded-2xl bg-gray-700/50 text-gray-200 rounded-bl-none animate-pulse">...</div>
-                    </div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
-            <div className="p-4 border-t border-green-400/30">
-                <div className="flex items-center space-x-2 bg-black/30 rounded-full holographic-border p-1">
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                        placeholder={ai ? t('chatbotInputPlaceholderOnline') : t('chatbotInputPlaceholderOffline')}
-                        className="flex-1 bg-transparent px-4 py-2 text-white placeholder-gray-400 focus:outline-none"
-                        disabled={isLoading || !ai}
-                    />
-                    <button onClick={handleSend} disabled={isLoading || !input.trim() || !ai} className="bg-green-500/80 text-white p-2 rounded-full hover:bg-green-500 disabled:opacity-50">
-                        <Icon name="arrowRight" className="w-5 h-5" />
-                    </button>
-                </div>
+                    ))}
+                    {isLoading && messages[messages.length - 1]?.role === 'user' && (
+                         <div className="flex justify-start">
+                            <div className="max-w-xs px-4 py-2 rounded-2xl bg-gray-700/50 text-gray-200 rounded-bl-none animate-pulse">...</div>
+                        </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </main>
+
+                <footer className="p-4 border-t border-green-400/30">
+                    <form onSubmit={handleSend} className="flex items-center space-x-2 bg-black/30 rounded-full holographic-border p-1">
+                         <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder={t('chatPlaceholder')}
+                            className="flex-1 bg-transparent px-4 py-2 text-white placeholder-gray-400 focus:outline-none"
+                            disabled={isLoading || !ai}
+                        />
+                        <button type="submit" disabled={isLoading || !input.trim() || !ai} className="bg-green-500/80 text-white p-2 rounded-full hover:bg-green-500 disabled:opacity-50">
+                            <Icon name="arrowRight" className="w-5 h-5" />
+                        </button>
+                    </form>
+                </footer>
             </div>
         </div>
     );

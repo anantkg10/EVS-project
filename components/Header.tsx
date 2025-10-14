@@ -44,17 +44,6 @@ const Header: React.FC<HeaderProps> = ({ currentView, setView }) => {
               <span className="hidden md:inline">{item.label}</span>
             </button>
           ))}
-           <button
-              onClick={() => setView(View.SETTINGS)}
-              className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center space-x-2 ${
-                currentView === View.SETTINGS
-                  ? 'bg-green-500/30 text-white'
-                  : 'text-gray-300 hover:bg-green-500/10 hover:text-white'
-              }`}
-            >
-              <Icon name="settings" className="w-4 h-4" />
-              <span className="hidden md:inline">{t('settings')}</span>
-            </button>
             <LanguageSelector />
         </div>
       </nav>

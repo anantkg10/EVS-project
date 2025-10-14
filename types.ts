@@ -9,7 +9,6 @@ export enum View {
   HISTORY = 'HISTORY',
   COMMUNITY = 'COMMUNITY',
   KNOWLEDGE_HUB = 'KNOWLEDGE_HUB',
-  SETTINGS = 'SETTINGS',
 }
 
 export enum Severity {
@@ -75,7 +74,7 @@ export interface Post {
 }
 
 
-export interface ChatMessage {
+export interface TranscriptMessage {
   role: 'user' | 'model';
   text: string;
 }

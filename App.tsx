@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View } from './types';
 import Header from './components/Header';
 import HomeView from './views/HomeView';
@@ -6,17 +6,16 @@ import ScanView from './views/ScanView';
 import HistoryView from './views/HistoryView';
 import KnowledgeHubView from './views/KnowledgeHubView';
 import CommunityView from './views/CommunityView';
-import SettingsView from './views/SettingsView';
+import VoiceAssistant from './components/VoiceAssistant';
 import Chatbot from './components/Chatbot';
-import { apiKeyMissingError } from './services/geminiService';
 import Icon from './components/Icon';
 import { useLocalization } from './contexts/LocalizationContext';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [navigationState, setNavigationState] = useState<any>(null);
-  const [showApiBanner, setShowApiBanner] = useState(apiKeyMissingError);
   const { t } = useLocalization();
 
 
@@ -24,11 +23,6 @@ const App: React.FC = () => {
     setCurrentView(view);
     setNavigationState(state);
   }, []);
-
-  const handleApiKeyUpdate = () => {
-    // Re-check the status from the service and update the banner state
-    setShowApiBanner(apiKeyMissingError);
-  };
 
   const renderView = useCallback(() => {
     const clearNavigationState = () => setNavigationState(null);
@@ -44,8 +38,6 @@ const App: React.FC = () => {
         return <KnowledgeHubView navigationState={navigationState} clearNavigationState={clearNavigationState} />;
       case View.COMMUNITY:
         return <CommunityView navigationState={navigationState} clearNavigationState={clearNavigationState} />;
-      case View.SETTINGS:
-        return <SettingsView onApiKeyUpdate={handleApiKeyUpdate} />;
       default:
         return <HomeView setView={navigate} />;
     }
@@ -57,25 +49,33 @@ const App: React.FC = () => {
       <div className="relative z-10 font-sans">
         <Header currentView={currentView} setView={navigate} />
         
-        {showApiBanner && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 w-full max-w-4xl z-40 p-4 animate-subtle-float">
-            <div className="bg-red-900/50 backdrop-blur-md border border-red-500/50 rounded-xl p-4 flex items-start space-x-4">
-              <Icon name="warning" className="w-8 h-8 text-red-400 flex-shrink-0 mt-1" />
-              <div className="flex-1">
-                <h3 className="font-bold text-red-300">{t('apiBannerTitle')}</h3>
-                <p className="text-sm text-gray-300">
-                  {t('apiBannerTextPart1')} <code className="bg-gray-800 text-yellow-300 px-1 py-0.5 rounded text-xs">API_KEY</code> {t('apiBannerTextPart2')} <a href="#" onClick={(e) => { e.preventDefault(); navigate(View.SETTINGS); }} className="font-bold text-green-300 underline hover:text-green-200">{t('settings')}</a> {t('apiBannerTextPart3')}
-                </p>
-              </div>
-              <button onClick={() => setShowApiBanner(false)} className="text-red-300 hover:text-white text-2xl font-bold p-1">&times;</button>
-            </div>
-          </div>
-        )}
-
         <main className="pt-24 pb-20 px-4 md:px-8">
             {renderView()}
         </main>
+        
+        {/* Floating Action Buttons */}
+        <div className="fixed bottom-8 right-8 z-50 flex flex-col items-center space-y-4">
+            <button
+                onClick={() => setIsChatbotOpen(true)}
+                className="bg-blue-500/80 backdrop-blur-md text-white p-4 rounded-full shadow-lg hover:bg-blue-500 transition-transform hover:scale-110 animate-glowing"
+                style={{ animationName: 'glowing, subtle-float', animationDuration: '3s, 6s', animationDelay: '0.2s', animationTimingFunction: 'ease-in-out', animationIterationCount: 'infinite' }}
+                aria-label={t('openChatbot')}
+            >
+                <Icon name="chatbot" className="w-8 h-8" />
+            </button>
+            <button
+                onClick={() => setIsAssistantOpen(true)}
+                className="bg-green-500/80 backdrop-blur-md text-white p-4 rounded-full shadow-lg hover:bg-green-500 transition-transform hover:scale-110 animate-glowing"
+                style={{ animationName: 'glowing, subtle-float', animationDuration: '3s, 6s', animationTimingFunction: 'ease-in-out', animationIterationCount: 'infinite' }}
+                aria-label={t('openVoiceAssistant')}
+            >
+                <Icon name="microphone" className="w-8 h-8" />
+            </button>
+        </div>
+        
         <Chatbot isOpen={isChatbotOpen} setIsOpen={setIsChatbotOpen} />
+        <VoiceAssistant isOpen={isAssistantOpen} setIsOpen={setIsAssistantOpen} />
+        
         <footer 
           className="fixed bottom-4 left-1/2 -translate-x-1/2 text-sm text-green-300/80 font-sans z-50 tracking-wider"
           style={{ textShadow: '0 0 8px rgba(72, 187, 120, 0.7)' }}

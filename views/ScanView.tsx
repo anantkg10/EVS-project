@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Chat, GenerateContentResponse } from "@google/genai";
-import { analyzePlantImage, findRelatedArticles, apiKeyMissingError, translateScanResult } from '../services/geminiService';
-import { ScanResult, Severity, HistoryItem, ChatMessage, View, Article } from '../types';
+import { analyzePlantImage, findRelatedArticles, translateScanResult } from '../services/geminiService';
+import { ScanResult, Severity, HistoryItem, TranscriptMessage, View, Article } from '../types';
 import HolographicButton from '../components/HolographicButton';
 import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -41,7 +41,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
 
 
   const [followUpChat, setFollowUpChat] = useState<Chat | null>(null);
-  const [followUpMessages, setFollowUpMessages] = useState<ChatMessage[]>([]);
+  const [followUpMessages, setFollowUpMessages] = useState<TranscriptMessage[]>([]);
   const [isReplying, setIsReplying] = useState(false);
   const [followUpInput, setFollowUpInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -182,7 +182,7 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   const handleSendFollowUp = async () => {
     if (!followUpInput.trim() || isReplying || !followUpChat) return;
 
-    const userMessage: ChatMessage = { role: 'user', text: followUpInput };
+    const userMessage: TranscriptMessage = { role: 'user', text: followUpInput };
     setFollowUpMessages(prev => [...prev, userMessage]);
     const currentInput = followUpInput;
     setFollowUpInput('');
@@ -233,11 +233,6 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
   const handleAnalyze = async () => {
     if (!imageFile || !imagePreview) return;
 
-    if (apiKeyMissingError) {
-        setError(t('scanErrorApiKeyMissing'));
-        return;
-    }
-
     setIsLoading(true);
     setError(null);
     setEnglishScanResult(null);
@@ -256,13 +251,11 @@ const ScanView: React.FC<ScanViewProps> = ({ setView }) => {
       const updatedHistory = [newHistoryItem, ...existingHistory].slice(0, 50); 
       localStorage.setItem('scanHistory', JSON.stringify(updatedHistory));
 
-      if (!apiKeyMissingError) {
-        // Get IDs using English articles for consistent matching with the English disease name
-        const englishT = (key: string): string => translations['en'][key] || key;
-        const allEnglishArticles = getArticles(englishT);
-        const ids = await findRelatedArticles(result.diseaseName, allEnglishArticles);
-        setRelatedArticleIds(ids);
-      }
+      // Get IDs using English articles for consistent matching with the English disease name
+      const englishT = (key: string): string => translations['en'][key] || key;
+      const allEnglishArticles = getArticles(englishT);
+      const ids = await findRelatedArticles(result.diseaseName, allEnglishArticles);
+      setRelatedArticleIds(ids);
 
     } catch (err: any) {
       setError(err.message || t('scanErrorUnknown'));
