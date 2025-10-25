@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { View } from './types';
 import Header from './components/Header';
@@ -57,7 +58,7 @@ const App: React.FC = () => {
         <div className="fixed bottom-8 right-8 z-50 flex flex-col items-center space-y-4">
             <button
                 onClick={() => setIsChatbotOpen(true)}
-                className="bg-blue-500/80 backdrop-blur-md text-white p-4 rounded-full shadow-lg hover:bg-blue-500 transition-transform hover:scale-110 animate-glowing"
+                className="bg-green-500/80 backdrop-blur-md text-white p-4 rounded-full shadow-lg hover:bg-green-500 transition-transform hover:scale-110 animate-glowing"
                 style={{ animationName: 'glowing, subtle-float', animationDuration: '3s, 6s', animationDelay: '0.2s', animationTimingFunction: 'ease-in-out', animationIterationCount: 'infinite' }}
                 aria-label={t('openChatbot')}
             >
