@@ -45,7 +45,7 @@ const App: React.FC = () => {
   }, [currentView, navigationState, navigate]);
 
   return (
-    <div className="min-h-screen bg-cover bg-center bg-fixed text-gray-200" style={{ backgroundImage: "url('https://picsum.photos/seed/futurefarm/1920/1080')" }}>
+    <div className="min-h-screen bg-cover bg-center bg-fixed text-gray-200" style={{ backgroundImage: "url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSIPjhLmw04VcBft627xb__xLEfj1MPnTrCnQ&s')" }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-0"></div>
       <div className="relative z-10 font-sans">
         <Header currentView={currentView} setView={navigate} />
